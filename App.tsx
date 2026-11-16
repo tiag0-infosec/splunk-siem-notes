@@ -1,0 +1,2115 @@
+import React, { useState } from 'react';
+import { 
+  Shield, Server, Database, Terminal, Search, BarChart2, PieChart, 
+  Activity, Eye, Cpu, ArrowRight, CheckCircle, XCircle, RefreshCw, 
+  BookOpen, Layers, FileText, Sun, Moon, Monitor,
+  Code, Filter, HardDrive, Share2, Award, ChevronRight, ChevronLeft,
+  Sparkles, Check, LayoutGrid, Globe
+} from 'lucide-react';
+
+// ==========================================
+// DICCIONARIO TRILINGÜE (ES / EN / TR)
+// ==========================================
+
+const I18N = {
+  es: {
+    badge: "Guía de tus Apuntes",
+    viewNotebookBtn: "Ver Esquema del Cuaderno",
+    themeTooltip: "Cambiar modo claro/oscuro",
+    tabs: {
+      architecture: "1. Arquitectura Interactiva",
+      simulator: "2. Simulador Pipeline & SPL",
+      flashcards: "3. Flashcards de Estudio",
+      quiz: "4. Quiz de Evaluación"
+    },
+    arch: {
+      conceptBadge: "Concepto General de tus Apuntes",
+      conceptDesc: "Toda la actividad generada en la red (Network) produce registros de eventos (Logs) que se envían hacia Splunk para lograr tres grandes objetivos en ciberseguridad y operaciones:",
+      goals: [
+        {
+          term: "Monitoring",
+          local: "Monitoreo",
+          desc: "Supervisión continua en tiempo real de los eventos y el tráfico que ocurre en la red y los sistemas.",
+          icon: Activity,
+          color: "text-emerald-400",
+          bg: "bg-emerald-500/10",
+          border: "border-emerald-500/30"
+        },
+        {
+          term: "Visibility",
+          local: "Visibilidad",
+          desc: "Capacidad de ver de forma clara qué está pasando en toda la infraestructura (servidores, endpoints, bases de datos) sin puntos ciegos.",
+          icon: Eye,
+          color: "text-cyan-400",
+          bg: "bg-cyan-500/10",
+          border: "border-cyan-500/30"
+        },
+        {
+          term: "Observability",
+          local: "Observabilidad",
+          desc: "Comprender el estado interno del sistema a partir de sus datos externos (logs, métricas, trazas) para detectar anomalías e investigar incidentes.",
+          icon: Search,
+          color: "text-purple-400",
+          bg: "bg-purple-500/10",
+          border: "border-purple-500/30"
+        }
+      ],
+      mapTitle: "Mapa de Arquitectura de Splunk",
+      mapHint: "Haz clic en cada bloque para explorar tus apuntes",
+      mapSub: "Basado exactamente en tu esquema: Forwarder ➔ Indexer ⇄ Search Head",
+      flowActive: "Flujo de Datos: Activo",
+      flowPaused: "Flujo de Datos: Pausado",
+      sourcesLabel: "Fuentes en tus apuntes:",
+      processesLabel: "Procesos en tus apuntes:",
+      visualsLabel: "Visualizaciones de tu cuaderno:",
+      charts: { line: "Líneas", pie: "Circular", bar: "Barras" },
+      clickDetails: "Click para detalles ➔",
+      selectedComp: "Componente Seleccionado",
+      trySimulatorBtn: "Probar en el Simulador ➔",
+      seeLogProcessBtn: "Ver cómo procesa un Log ➔",
+      trySplBtn: "Probar Comandos SPL y Gráficos ➔",
+      sampleLogLabel: "Ejemplo Log: ",
+      forwarder: {
+        title: "Forwarder (Reenviador)",
+        footer: "Recolecta y envía logs",
+        desc: "Es un agente ligero (Universal o Heavy Forwarder) instalado directamente en los servidores o endpoints de origen ('Agent installed'). Su misión es recolectar los logs locales y enviarlos hacia la instancia de Splunk ('Sending data to Splunk instance').",
+        sourcesHeading: "Explora las 4 Fuentes de Datos (Data Sources) de tus apuntes:"
+      },
+      indexer: {
+        title: "Indexer (Indexador)",
+        sub: "Main Role (Rol Principal)",
+        footer: "Procesa e indexa",
+        desc: "Es el motor central de Splunk ('Main Role' en tus apuntes). Recibe los datos crudos desde los Forwarders, los transforma en eventos individuales y los almacena en índices de alto rendimiento.",
+        processes: [
+          { step: "1. Parses", local: "Analiza sintácticamente", desc: "Divide el flujo de texto en eventos individuales, identifica marcas de tiempo (timestamps) y extrae pares clave-valor.", icon: Code },
+          { step: "2. Normalizes", local: "Normaliza", desc: "Estandariza los datos de diferentes fuentes (Windows, Linux, Web) bajo un formato común para facilitar las búsquedas.", icon: Filter },
+          { step: "3. Categorizes", local: "Categoriza", desc: "Clasifica y etiqueta los eventos según su origen (sourcetype), host e índice correspondiente.", icon: Layers },
+          { step: "4. Store", local: "Almacena", desc: "Guarda los datos comprimidos y los archivos de índice en disco, listos para consultas ultrarrápidas.", icon: HardDrive }
+        ]
+      },
+      searchHead: {
+        title: "Search Head (Cabezal de Búsqueda)",
+        footer: "Busca y visualiza",
+        desc: "Es la interfaz analítica con la que interactúa el usuario o analista SOC. Envía consultas SPL a los Indexers y transforma los eventos en tablas, reportes y paneles visuales.",
+        features: [
+          { title: "Search and Report App", local: "App de Búsqueda y Reportes", desc: "La aplicación principal en Splunk donde los analistas escriben consultas, exploran campos e investigan incidentes." },
+          { title: "SPL (Search Processing Language)", local: "Lenguaje de Procesamiento de Búsqueda", desc: "El lenguaje de comandos de Splunk (usando tuberías '|') para filtrar, correlacionar y agrupar millones de eventos (stats, timechart, table)." },
+          { title: "Create Dashboard & Tables", local: "Creación de Dashboards y Tablas", desc: "Transforma los resultados SPL en paneles visuales con gráficos de líneas, circulares, de barras y tablas estructuradas." }
+        ]
+      }
+    },
+    sim: {
+      badge: "Laboratorio Práctico Interactivo",
+      title: "Simulador End-to-End: Del Log en Crudo al Dashboard con SPL",
+      subtitle: "Selecciona una de las 4 fuentes de datos de tu cuaderno y observa cómo viaja por el Forwarder, el Indexer y el Search Head.",
+      stage1Title: "Etapa 1: Forwarder",
+      stage1Desc: "El agente instalado captura el evento en crudo (Raw Log) en el origen y lo envía a la instancia de Splunk:",
+      stage2Title: "Etapa 2: Indexer (Main Role)",
+      stage2Desc: "El Indexer recibe el texto crudo, lo analiza (Parses), normaliza (Normalizes), categoriza (Categorizes) y almacena (Store):",
+      stage3Title: "Etapa 3: Search Head (Search & Report App)",
+      stage3Desc: "Selecciona una consulta SPL para consultar el Indexer y generar las visualizaciones de tu cuaderno (Barras, Circular, Líneas y Tablas):",
+      activeBarLabel: "Search and Report App — Consulta SPL activa:",
+      queryExecuted: "Consulta ejecutada",
+      dashboardResultTitle: "Resultado en Dashboard & Table",
+      sourceLabel: "Fuente",
+      eventsUnit: "eventos",
+      peakLabel: "Pico"
+    },
+    cards: {
+      badge: "Memorización Activa",
+      title: "Flashcards de tus Apuntes",
+      of: "de",
+      mastered: "Dominadas",
+      answerBadge: "Respuesta de tus apuntes",
+      clickToFlip: "Haz clic para voltear",
+      clickBack: "Clic para volver a la pregunta",
+      thinkFirst: "Piensa tu respuesta antes de hacer clic",
+      prev: "Anterior",
+      next: "Siguiente",
+      learned: "¡Ya me la sé!",
+      markLearned: "Marcar como aprendida",
+      items: [
+        {
+          category: "Concepto General",
+          front: "¿Cuáles son los 3 objetivos principales de enviar los Network Logs hacia Splunk SIEM según tus apuntes?",
+          back: "1. Monitoring (Monitoreo continuo)\n2. Visibility (Visibilidad completa de la red/sistemas)\n3. Observability (Observabilidad profunda mediante logs)"
+        },
+        {
+          category: "Arquitectura",
+          front: "¿Cuáles son los 3 componentes principales que conforman la arquitectura de Splunk en tu diagrama?",
+          back: "1. Forwarder (Reenviador)\n2. Indexer (Indexador)\n3. Search Head (Cabezal de Búsqueda)"
+        },
+        {
+          category: "Forwarder",
+          front: "¿Qué es el Forwarder y cuál es su función principal en tus notas?",
+          back: "'Agent installed ➔ Sending data to Splunk instance'.\nEs un agente ligero instalado en los sistemas de origen cuya función es recolectar logs y enviarlos hacia Splunk."
+        },
+        {
+          category: "Fuentes de Datos (Forwarder)",
+          front: "¿Qué 4 fuentes de datos (Data Sources) recolecta el Forwarder en tus apuntes?",
+          back: "1. Web Server (Web traffic)\n2. Windows Sysmon data (Windows Event, PowerShell)\n3. Linux (Host-centric logs)\n4. Database (DB requests, responses, errors)"
+        },
+        {
+          category: "Indexer (Main Role)",
+          front: "¿Qué componente tiene el 'Main Role' (Rol Principal) y cuáles son sus 4 acciones clave?",
+          back: "El Indexer.\nSus 4 acciones clave son:\n1. Parses (Analiza sintácticamente)\n2. Normalizes (Normaliza)\n3. Categorizes (Categoriza)\n4. Store (Almacena)"
+        },
+        {
+          category: "Search Head & SPL",
+          front: "¿Qué significan las siglas SPL y qué elementos visuales permite crear en el Search Head?",
+          back: "SPL = Search Processing Language (dentro de Search and Report App).\nPermite crear Dashboards (gráficos de líneas, circulares y de barras) y Tables (tablas)."
+        }
+      ]
+    },
+    quiz: {
+      badge: "Autoevaluación",
+      title: "Examen de Práctica: Apuntes de Splunk SIEM",
+      score: "Puntuación",
+      explanation: "Explicación: ",
+      resetBtn: "Reiniciar Quiz",
+      submitBtn: "Calificar Respuestas",
+      questions: [
+        {
+          q: "Según el esquema superior de tus apuntes, ¿qué beneficios clave proporciona Splunk SIEM al recibir los Logs de la red (Network)?",
+          options: [
+            "Firewalling, Antivirus y Encriptación",
+            "Monitoring, Visibility y Observability",
+            "Routing, Switching y Load Balancing",
+            "Compilación, Virtualización y Backups"
+          ],
+          correct: 1,
+          explanation: "En la esquina superior derecha de tus apuntes se destacan claramente las tres metas: Monitoring, Visibility y Observability."
+        },
+        {
+          q: "¿Cuál de los siguientes componentes se define en tus apuntes como 'Agent installed ➔ Sending data to Splunk instance'?",
+          options: ["Search Head", "Indexer", "Forwarder", "SPL Engine"],
+          correct: 2,
+          explanation: "El Forwarder es el agente instalado en los equipos o servidores para recolectar y enviar datos a la instancia de Splunk."
+        },
+        {
+          q: "¿Qué tipo de datos recolecta el Forwarder de un sistema Linux según tus notas?",
+          options: [
+            "Windows Event y PowerShell",
+            "Host-centric logs (Logs centrados en el host)",
+            "DB requests, responses, errors",
+            "Únicamente tráfico web HTTP"
+          ],
+          correct: 1,
+          explanation: "Para Linux, tus apuntes especifican 'Host-centric logs' (logs propios del sistema operativo del host)."
+        },
+        {
+          q: "¿Cuáles son las 4 tareas fundamentales que realiza el Indexer ('Main Role') al recibir los datos del Forwarder?",
+          options: [
+            "Collects, Encrypts, Deletes, Forwards",
+            "Parses, Normalizes, Categorizes, Store",
+            "Searches, Reports, Graphs, Alerts",
+            "Blocks, Quarantines, Scans, Patches"
+          ],
+          correct: 1,
+          explanation: "Bajo el cuadro 'Main Role' del Indexer anotaste exactamente: Parses, Normalizes, Categorizes y Store."
+        },
+        {
+          q: "¿Qué significan las siglas SPL anotadas dentro del bloque del Search Head?",
+          options: [
+            "System Protocol Log",
+            "Security Protection Layer",
+            "Search Processing Language",
+            "Server Parsing Logic"
+          ],
+          correct: 2,
+          explanation: "SPL significa Search Processing Language, el lenguaje utilizado en la Search and Report App para consultar datos."
+        }
+      ]
+    },
+    modal: {
+      badge: "Transcripción Exacta de tu Cuaderno",
+      title: "Esquema Original: \"Splunk SIEM\"",
+      close: "Cerrar ✕",
+      drawingsNote: "[Dibujos de Gráficos: Líneas, Circular, Barras]"
+    }
+  },
+
+  en: {
+    badge: "Study Guide from Your Notes",
+    viewNotebookBtn: "View Notebook Diagram",
+    themeTooltip: "Toggle light/dark mode",
+    tabs: {
+      architecture: "1. Interactive Architecture",
+      simulator: "2. Pipeline & SPL Simulator",
+      flashcards: "3. Study Flashcards",
+      quiz: "4. Practice Quiz"
+    },
+    arch: {
+      conceptBadge: "Core Concept from Your Notes",
+      conceptDesc: "All activity generated across the Network produces event records (Logs) sent into Splunk to achieve three core cybersecurity and operational goals:",
+      goals: [
+        {
+          term: "Monitoring",
+          local: "Continuous Tracking",
+          desc: "Real-time ongoing supervision of security events, system states, and network traffic across your infrastructure.",
+          icon: Activity,
+          color: "text-emerald-400",
+          bg: "bg-emerald-500/10",
+          border: "border-emerald-500/30"
+        },
+        {
+          term: "Visibility",
+          local: "Full Clarity",
+          desc: "Ability to clearly see what is happening across all assets (web servers, endpoints, Linux hosts, databases) without blind spots.",
+          icon: Eye,
+          color: "text-cyan-400",
+          bg: "bg-cyan-500/10",
+          border: "border-cyan-500/30"
+        },
+        {
+          term: "Observability",
+          local: "Deep Insight",
+          desc: "Understanding the internal state of systems from their external outputs (logs, metrics, traces) to investigate root causes and threats.",
+          icon: Search,
+          color: "text-purple-400",
+          bg: "bg-purple-500/10",
+          border: "border-purple-500/30"
+        }
+      ],
+      mapTitle: "Splunk Architecture Map",
+      mapHint: "Click each block to explore your handwritten notes",
+      mapSub: "Based faithfully on your diagram: Forwarder ➔ Indexer ⇄ Search Head",
+      flowActive: "Data Flow: Active",
+      flowPaused: "Data Flow: Paused",
+      sourcesLabel: "Sources in your notes:",
+      processesLabel: "Processes in your notes:",
+      visualsLabel: "Visualizations in your notebook:",
+      charts: { line: "Line", pie: "Pie", bar: "Bar" },
+      clickDetails: "Click for details ➔",
+      selectedComp: "Selected Component",
+      trySimulatorBtn: "Try in Simulator ➔",
+      seeLogProcessBtn: "See how it processes a Log ➔",
+      trySplBtn: "Try SPL Commands & Charts ➔",
+      sampleLogLabel: "Sample Log: ",
+      forwarder: {
+        title: "Forwarder (Data Collector)",
+        footer: "Collects & forwards logs",
+        desc: "A lightweight agent (Universal or Heavy Forwarder) installed directly on source servers or endpoints ('Agent installed'). Its sole mission is to collect local logs and stream them to the Splunk instance ('Sending data to Splunk instance').",
+        sourcesHeading: "Explore the 4 Data Sources from your notes:"
+      },
+      indexer: {
+        title: "Indexer (Processing Engine)",
+        sub: "Main Role",
+        footer: "Processes & indexes",
+        desc: "The central processing engine of Splunk ('Main Role' in your notes). It receives raw data streams from Forwarders, turns them into individual searchable events, and stores them in high-performance indexes.",
+        processes: [
+          { step: "1. Parses", local: "Breaks & Extracts", desc: "Breaks raw text streams into individual events, identifies timestamps, and extracts key-value pairs.", icon: Code },
+          { step: "2. Normalizes", local: "Standardizes Fields", desc: "Aligns data from diverse sources (Windows, Linux, Web, DB) into a consistent naming convention.", icon: Filter },
+          { step: "3. Categorizes", local: "Classifies Events", desc: "Tags and organizes events by sourcetype, host, and target index (e.g., web, security, database).", icon: Layers },
+          { step: "4. Store", local: "Writes to Disk", desc: "Saves compressed raw data and index files (buckets) to disk, ready for millisecond queries.", icon: HardDrive }
+        ]
+      },
+      searchHead: {
+        title: "Search Head (Analytics & UI)",
+        footer: "Searches & visualizes",
+        desc: "The analytical interface used by SOC analysts. It dispatches SPL queries to Indexers, retrieves matching events, and builds tables, reports, and visual dashboards.",
+        features: [
+          { title: "Search and Report App", local: "Main Investigation Workspace", desc: "The primary Splunk interface where users write queries, inspect extracted fields, and build reports or alerts." },
+          { title: "SPL (Search Processing Language)", local: "Splunk Query Language", desc: "Splunk's pipe-based ('|') query language used to filter, transform, correlate, and aggregate millions of logs (stats, timechart, table)." },
+          { title: "Create Dashboard & Tables", local: "Visual Panels & Tables", desc: "Turns SPL query outputs into actionable visualizations: line charts (trends), pie charts (ratios), bar charts, and structured tables." }
+        ]
+      }
+    },
+    sim: {
+      badge: "Interactive Hands-on Lab",
+      title: "End-to-End Simulator: From Raw Log to SPL Dashboard",
+      subtitle: "Select one of the 4 data sources from your notebook and watch how it travels through the Forwarder, Indexer, and Search Head.",
+      stage1Title: "Stage 1: Forwarder",
+      stage1Desc: "The installed agent captures the raw log event on the source host and forwards it to the Splunk instance:",
+      stage2Title: "Stage 2: Indexer (Main Role)",
+      stage2Desc: "The Indexer receives the raw text, Parses key-value fields, Normalizes them, Categorizes the event, and Stores it:",
+      stage3Title: "Stage 3: Search Head (Search & Report App)",
+      stage3Desc: "Pick an SPL query to search the Indexer and generate the visualizations drawn in your notebook (Bar, Pie, Line charts & Tables):",
+      activeBarLabel: "Search and Report App — Active SPL Bar:",
+      queryExecuted: "Query executed",
+      dashboardResultTitle: "Dashboard & Table Output",
+      sourceLabel: "Source",
+      eventsUnit: "events",
+      peakLabel: "Peak"
+    },
+    cards: {
+      badge: "Active Recall",
+      title: "Flashcards from Your Notes",
+      of: "of",
+      mastered: "Mastered",
+      answerBadge: "Answer from your notes",
+      clickToFlip: "Click to flip",
+      clickBack: "Click to return to question",
+      thinkFirst: "Think of your answer before clicking",
+      prev: "Previous",
+      next: "Next",
+      learned: "Mastered!",
+      markLearned: "Mark as learned",
+      items: [
+        {
+          category: "General Concept",
+          front: "What are the 3 main goals of sending Network Logs into Splunk SIEM according to the top-right of your notes?",
+          back: "1. Monitoring (Continuous real-time tracking)\n2. Visibility (Clear view across all systems)\n3. Observability (Deep insight through logs)"
+        },
+        {
+          category: "Architecture",
+          front: "What are the 3 core architectural components of Splunk shown in your diagram?",
+          back: "1. Forwarder\n2. Indexer\n3. Search Head"
+        },
+        {
+          category: "Forwarder",
+          front: "What is the Forwarder and what is its role according to your notebook?",
+          back: "'Agent installed ➔ Sending data to Splunk instance'.\nIt is a lightweight agent installed on source hosts that collects local logs and forwards them to Splunk."
+        },
+        {
+          category: "Data Sources (Forwarder)",
+          front: "Which 4 data sources are collected by the Forwarder in your notes?",
+          back: "1. Web Server (Web traffic)\n2. Windows Sysmon data (Windows Event, PowerShell)\n3. Linux (Host-centric logs)\n4. Database (DB requests, responses, errors)"
+        },
+        {
+          category: "Indexer (Main Role)",
+          front: "Which component holds the 'Main Role' of data processing, and what are its 4 key actions?",
+          back: "The Indexer.\nIts 4 actions on incoming data are:\n1. Parses\n2. Normalizes\n3. Categorizes\n4. Store"
+        },
+        {
+          category: "Search Head & SPL",
+          front: "What does SPL stand for, and what outputs does the Search Head create?",
+          back: "SPL = Search Processing Language (used inside the Search and Report App).\nIt enables analysts to Create Dashboards (line, pie, and bar charts) and Tables."
+        }
+      ]
+    },
+    quiz: {
+      badge: "Self-Assessment",
+      title: "Practice Quiz: Splunk SIEM Notes",
+      score: "Score",
+      explanation: "Explanation: ",
+      resetBtn: "Reset Quiz",
+      submitBtn: "Submit Answers",
+      questions: [
+        {
+          q: "According to the top diagram in your notes, what 3 key benefits does Splunk SIEM provide when ingesting Network Logs?",
+          options: [
+            "Firewalling, Antivirus, and Encryption",
+            "Monitoring, Visibility, and Observability",
+            "Routing, Switching, and Load Balancing",
+            "Compiling, Virtualization, and Backups"
+          ],
+          correct: 1,
+          explanation: "In the top-right corner of your notebook page, you wrote: Monitoring, Visibility, and Observability."
+        },
+        {
+          q: "Which component is described in your notes as 'Agent installed ➔ Sending data to Splunk instance'?",
+          options: ["Search Head", "Indexer", "Forwarder", "SPL Engine"],
+          correct: 2,
+          explanation: "The Forwarder is the agent installed on endpoints and servers to send logs to the Splunk instance."
+        },
+        {
+          q: "What type of logs does the Forwarder collect from a Linux system according to your notes?",
+          options: [
+            "Windows Event and PowerShell",
+            "Host-centric logs",
+            "DB requests, responses, errors",
+            "HTTP web traffic only"
+          ],
+          correct: 1,
+          explanation: "Under Linux, your notes explicitly specify '(Host-centric logs)'."
+        },
+        {
+          q: "What are the 4 core tasks performed by the Indexer ('Main Role') when receiving data from the Forwarder?",
+          options: [
+            "Collects, Encrypts, Deletes, Forwards",
+            "Parses, Normalizes, Categorizes, Store",
+            "Searches, Reports, Graphs, Alerts",
+            "Blocks, Quarantines, Scans, Patches"
+          ],
+          correct: 1,
+          explanation: "Inside the 'Main Role' box under Indexer, you listed: Parses, Normalizes, Categorizes, and Store."
+        },
+        {
+          q: "What does the acronym SPL stand for inside the Search Head block?",
+          options: [
+            "System Protocol Log",
+            "Security Protection Layer",
+            "Search Processing Language",
+            "Server Parsing Logic"
+          ],
+          correct: 2,
+          explanation: "SPL stands for Search Processing Language, used in the Search and Report App to query indexed data."
+        }
+      ]
+    },
+    modal: {
+      badge: "Exact Transcription of Your Notebook",
+      title: "Original Diagram: \"Splunk SIEM\"",
+      close: "Close ✕",
+      drawingsNote: "[Hand-drawn Charts: Line, Pie, Bar]"
+    }
+  },
+
+  tr: {
+    badge: "Ders Notları Rehberin",
+    viewNotebookBtn: "Defter Şemasını Gör",
+    themeTooltip: "Açık/Koyu temayı değiştir",
+    tabs: {
+      architecture: "1. İnteraktif Mimari",
+      simulator: "2. Pipeline & SPL Simülatörü",
+      flashcards: "3. Çalışma Kartları (Flashcards)",
+      quiz: "4. Değerlendirme Testi (Quiz)"
+    },
+    arch: {
+      conceptBadge: "Notlarındaki Temel Kavram",
+      conceptDesc: "Ağda (Network) gerçekleşen tüm aktiviteler olay kayıtları (Logs) üretir ve siber güvenlik operasyonlarında üç temel hedefe ulaşmak için Splunk'a gönderilir:",
+      goals: [
+        {
+          term: "Monitoring",
+          local: "İzleme",
+          desc: "Ağ ve sistemlerde gerçekleşen olayların ve trafiğin gerçek zamanlı ve kesintisiz olarak takip edilmesi.",
+          icon: Activity,
+          color: "text-emerald-400",
+          bg: "bg-emerald-500/10",
+          border: "border-emerald-500/30"
+        },
+        {
+          term: "Visibility",
+          local: "Görünürlük",
+          desc: "Tüm altyapıda (web sunucuları, uç noktalar, Linux, veritabanları) kör nokta kalmadan neler olup bittiğini net bir şekilde görme yeteneği.",
+          icon: Eye,
+          color: "text-cyan-400",
+          bg: "bg-cyan-500/10",
+          border: "border-cyan-500/30"
+        },
+        {
+          term: "Observability",
+          local: "Gözlemlenebilirlik",
+          desc: "Dış verilerden (loglar, metrikler, izler) yola çıkarak sistemin iç durumunu anlama, anomalileri tespit etme ve olayları derinlemesine inceleme.",
+          icon: Search,
+          color: "text-purple-400",
+          bg: "bg-purple-500/10",
+          border: "border-purple-500/30"
+        }
+      ],
+      mapTitle: "Splunk Mimari Haritası",
+      mapHint: "Notlarını detaylı incelemek için her bloğa tıkla",
+      mapSub: "Defterindeki şemaya birebir sadık: Forwarder ➔ Indexer ⇄ Search Head",
+      flowActive: "Veri Akışı: Aktif",
+      flowPaused: "Veri Akışı: Duraklatıldı",
+      sourcesLabel: "Notlarındaki veri kaynakları:",
+      processesLabel: "Notlarındaki işlemler:",
+      visualsLabel: "Defterindeki görselleştirmeler:",
+      charts: { line: "Çizgi", pie: "Pasta", bar: "Çubuk" },
+      clickDetails: "Detaylar için tıkla ➔",
+      selectedComp: "Seçili Bileşen",
+      trySimulatorBtn: "Simülatörde Dene ➔",
+      seeLogProcessBtn: "Log İşleme Adımlarını Gör ➔",
+      trySplBtn: "SPL Komutlarını ve Grafikleri Dene ➔",
+      sampleLogLabel: "Örnek Log: ",
+      forwarder: {
+        title: "Forwarder (Veri İletici)",
+        footer: "Logları toplar ve iletir",
+        desc: "Kaynak sunuculara veya uç noktalara doğrudan kurulan hafif ajandır ('Agent installed'). Tek görevi yerel logları toplamak ve Splunk örneğine göndermektir ('Sending data to Splunk instance').",
+        sourcesHeading: "Notlarındaki 4 Veri Kaynağını (Data Sources) İncele:"
+      },
+      indexer: {
+        title: "Indexer (İndeksleyici)",
+        sub: "Main Role (Ana Rol)",
+        footer: "İşler ve indeksler",
+        desc: "Splunk'ın merkezi işleme motorudur (Notlarındaki 'Main Role'). Forwarder'lardan gelen ham veri akışını alır, bunları tekil olaylara dönüştürür ve yüksek hızlı arama için indeksleyerek saklar.",
+        processes: [
+          { step: "1. Parses", local: "Ayrıştırır", desc: "Ham metin akışını tekil olaylara böler, zaman damgalarını (timestamps) belirler ve anahtar-değer çiftlerini çıkarır.", icon: Code },
+          { step: "2. Normalizes", local: "Normalleştirir", desc: "Farklı kaynaklardan (Windows, Linux, Web, DB) gelen verileri ortak bir standart şemaya dönüştürür.", icon: Filter },
+          { step: "3. Categorizes", local: "Kategorize Eder", desc: "Olayları kaynak türüne (sourcetype), sunucuya (host) ve hedef indekse göre sınıflandırıp etiketler.", icon: Layers },
+          { step: "4. Store", local: "Depolar", desc: "Sıkıştırılmış verileri ve indeks dosyalarını (bucket) milisaniyeler içinde aranabilecek şekilde diske kaydeder.", icon: HardDrive }
+        ]
+      },
+      searchHead: {
+        title: "Search Head (Arama ve Analiz Başlığı)",
+        footer: "Arar ve görselleştirir",
+        desc: "SOC analistinin etkileşime girdiği arayüzdür. Indexer'lara SPL sorguları gönderir, ilgili olayları getirir ve bunları tablolara, raporlara ve görsel panellere dönüştürür.",
+        features: [
+          { title: "Search and Report App", local: "Arama ve Raporlama Uygulaması", desc: "Kullanıcıların sorgu yazdığı, çıkarılan alanları incelediği ve rapor/uyarı oluşturduğu ana Splunk arayüzü." },
+          { title: "SPL (Search Processing Language)", local: "Arama İşleme Dili", desc: "Milyonlarca logu filtrelemek, ilişkilendirmek ve gruplamak için boru ('|') yapısını kullanan Splunk sorgu dili (stats, timechart, table)." },
+          { title: "Create Dashboard & Tables", local: "Pano ve Tablo Oluşturma", desc: "SPL sonuçlarını çizgi grafikleri, pasta grafikleri, çubuk grafikler ve yapılandırılmış tablolardan oluşan görsel panellere dönüştürür." }
+        ]
+      }
+    },
+    sim: {
+      badge: "İnteraktif Uygulama Laboratuvarı",
+      title: "Uçtan Uca Simülatör: Ham Logdan SPL Panosuna",
+      subtitle: "Defterindeki 4 veri kaynağından birini seç ve verinin Forwarder, Indexer ve Search Head üzerinden nasıl geçtiğini canlı incele.",
+      stage1Title: "Aşama 1: Forwarder",
+      stage1Desc: "Kaynağa kurulu ajan (Agent installed) ham log kaydını yakalar ve Splunk örneğine iletir:",
+      stage2Title: "Aşama 2: Indexer (Main Role)",
+      stage2Desc: "Indexer ham metni alır; ayrıştırır (Parses), normalleştirir (Normalizes), kategorize eder (Categorizes) ve depolar (Store):",
+      stage3Title: "Aşama 3: Search Head (Search & Report App)",
+      stage3Desc: "Indexer'ı sorgulamak ve defterine çizdiğin görselleştirmeleri (Çubuk, Pasta, Çizgi Grafikler ve Tablolar) üretmek için bir SPL sorgusu seç:",
+      activeBarLabel: "Search and Report App — Aktif SPL Çubuğu:",
+      queryExecuted: "Sorgu çalıştırıldı",
+      dashboardResultTitle: "Dashboard & Table Çıktısı",
+      sourceLabel: "Kaynak",
+      eventsUnit: "olay",
+      peakLabel: "Zirve"
+    },
+    cards: {
+      badge: "Aktif Hatırlama",
+      title: "Notlarından Çalışma Kartları",
+      of: "/",
+      mastered: "Öğrenilen",
+      answerBadge: "Notlarındaki Cevap",
+      clickToFlip: "Çevirmek için tıkla",
+      clickBack: "Soruya dönmek için tıkla",
+      thinkFirst: "Tıklamadan önce cevabı düşün",
+      prev: "Önceki",
+      next: "Sonraki",
+      learned: "Öğrendim!",
+      markLearned: "Öğrenildi olarak işaretle",
+      items: [
+        {
+          category: "Genel Kavram",
+          front: "Notlarının sağ üst köşesine göre Network Loglarını Splunk SIEM'e göndermenin 3 temel amacı nedir?",
+          back: "1. Monitoring (Sürekli İzleme)\n2. Visibility (Tam Görünürlük)\n3. Observability (Loglar üzerinden Derin Gözlemlenebilirlik)"
+        },
+        {
+          category: "Mimari",
+          front: "Şemanda Splunk mimarisini oluşturan 3 ana bileşen sırasıyla hangileridir?",
+          back: "1. Forwarder (Veri İletici)\n2. Indexer (İndeksleyici)\n3. Search Head (Arama Başlığı)"
+        },
+        {
+          category: "Forwarder",
+          front: "Notlarına göre Forwarder nedir ve temel görevi nedir?",
+          back: "'Agent installed ➔ Sending data to Splunk instance'.\nKaynak sistemlere kurulan ve logları toplayıp Splunk'a gönderen hafif ajandır."
+        },
+        {
+          category: "Veri Kaynakları (Forwarder)",
+          front: "Defterinde Forwarder'ın topladığı 4 veri kaynağı (Data Sources) nelerdir?",
+          back: "1. Web Server (Web traffic)\n2. Windows Sysmon data (Windows Event, PowerShell)\n3. Linux (Host-centric logs)\n4. Database (DB requests, responses, errors)"
+        },
+        {
+          category: "Indexer (Main Role)",
+          front: "Hangi bileşen 'Main Role' (Ana Rol) görevine sahiptir ve 4 temel işlemi nedir?",
+          back: "Indexer.\nGelen veriler üzerindeki 4 temel işlemi:\n1. Parses (Ayrıştırır)\n2. Normalizes (Normalleştirir)\n3. Categorizes (Kategorize eder)\n4. Store (Depolar)"
+        },
+        {
+          category: "Search Head & SPL",
+          front: "SPL kısaltmasının açılımı nedir ve Search Head içinde nelerin oluşturulmasını sağlar?",
+          back: "SPL = Search Processing Language (Search and Report App içinde kullanılır).\nGörsel Panolar (Create Dashboard: çizgi, pasta, çubuk grafikler) ve Tablolar (Tables) oluşturmayı sağlar."
+        }
+      ]
+    },
+    quiz: {
+      badge: "Öz Değerlendirme",
+      title: "Pratik Testi: Splunk SIEM Notları",
+      score: "Puan",
+      explanation: "Açıklama: ",
+      resetBtn: "Testi Sıfırla",
+      submitBtn: "Cevapları Kontrol Et",
+      questions: [
+        {
+          q: "Notlarının üst kısmındaki şemaya göre, Ağ Loglarını (Network Logs) Splunk SIEM'e aktarmanın sağladığı 3 temel fayda nedir?",
+          options: [
+            "Firewalling, Antivirus ve Şifreleme",
+            "Monitoring, Visibility ve Observability",
+            "Routing, Switching ve Load Balancing",
+            "Derleme, Sanallaştırma ve Yedekleme"
+          ],
+          correct: 1,
+          explanation: "Defterinin sağ üst köşesinde açıkça Monitoring (İzleme), Visibility (Görünürlük) ve Observability (Gözlemlenebilirlik) yazmaktadır."
+        },
+        {
+          q: "Notlarında 'Agent installed ➔ Sending data to Splunk instance' olarak tanımlanan bileşen hangisidir?",
+          options: ["Search Head", "Indexer", "Forwarder", "SPL Engine"],
+          correct: 2,
+          explanation: "Forwarder, sunuculara ve uç noktalara kurulan ve verileri Splunk örneğine gönderen ajandır."
+        },
+        {
+          q: "Notlarına göre Forwarder bir Linux sisteminden ne tür loglar toplar?",
+          options: [
+            "Windows Event ve PowerShell",
+            "Host-centric logs (Sunucu odaklı loglar)",
+            "DB requests, responses, errors",
+            "Yalnızca HTTP web trafiği"
+          ],
+          correct: 1,
+          explanation: "Linux başlığı altında notlarında '(Host-centric logs)' ifadesi yer almaktadır."
+        },
+        {
+          q: "Indexer'ın ('Main Role') Forwarder'dan gelen veriler üzerinde gerçekleştirdiği 4 temel işlem nedir?",
+          options: [
+            "Collects, Encrypts, Deletes, Forwards",
+            "Parses, Normalizes, Categorizes, Store",
+            "Searches, Reports, Graphs, Alerts",
+            "Blocks, Quarantines, Scans, Patches"
+          ],
+          correct: 1,
+          explanation: "Indexer altındaki 'Main Role' kutusunda sırasıyla: Parses, Normalizes, Categorizes ve Store yazılıdır."
+        },
+        {
+          q: "Search Head bloğu içinde yer alan SPL kısaltmasının açılımı nedir?",
+          options: [
+            "System Protocol Log",
+            "Security Protection Layer",
+            "Search Processing Language",
+            "Server Parsing Logic"
+          ],
+          correct: 2,
+          explanation: "SPL, Search and Report App içinde verileri sorgulamak için kullanılan Search Processing Language anlamına gelir."
+        }
+      ]
+    },
+    modal: {
+      badge: "Defterinin Birebir Transkripsiyonu",
+      title: "Orijinal Şema: \"Splunk SIEM\"",
+      close: "Kapat ✕",
+      drawingsNote: "[Çizilen Grafikler: Çizgi, Pasta, Çubuk]"
+    }
+  }
+};
+
+// ==========================================
+// DATOS DE LAS 4 FUENTES (TRILINGÜE)
+// ==========================================
+
+const SOURCES_DATA = [
+  {
+    id: "webserver",
+    name: "Web Server",
+    noteDetail: "(Web traffic)",
+    icon: Monitor,
+    sampleRaw: '192.168.1.45 - - [15/Nov/2026:10:15:32 +0000] "POST /login.php HTTP/1.1" 401 532 "Mozilla/5.0" "sqlmap/1.5"',
+    parsed: {
+      src_ip: "192.168.1.45",
+      method: "POST",
+      uri: "/login.php",
+      status: "401 (Unauthorized)",
+      user_agent: "sqlmap/1.5",
+      category: "Web Attack / Brute Force"
+    },
+    i18n: {
+      es: {
+        localName: "Servidor Web (Tráfico Web)",
+        explanation: "Registra peticiones HTTP/HTTPS (GET, POST), códigos de respuesta (200, 401, 404, 500), IPs de clientes y User-Agents. Vital para detectar ataques web como SQLi, XSS o fuerza bruta.",
+        splDesc: [
+          "Cuenta intentos fallidos de inicio de sesión (401) agrupados por IP de origen (Gráfico de Barras).",
+          "Distribución porcentual de códigos de estado HTTP (Gráfico Circular).",
+          "Evolución del tráfico web a lo largo del tiempo (Gráfico de Líneas)."
+        ]
+      },
+      en: {
+        localName: "Web Server (Web traffic)",
+        explanation: "Logs HTTP/HTTPS requests (GET, POST), status codes (200, 401, 404, 500), client IPs, and User-Agents. Essential for detecting web attacks like SQLi, XSS, or brute force.",
+        splDesc: [
+          "Counts failed login attempts (401) grouped by source IP (Bar Chart).",
+          "Percentage breakdown of HTTP response status codes (Pie Chart).",
+          "Web traffic volume trend over time (Line Chart)."
+        ]
+      },
+      tr: {
+        localName: "Web Sunucusu (Web trafiği)",
+        explanation: "HTTP/HTTPS isteklerini (GET, POST), durum kodlarını (200, 401, 404, 500), istemci IP adreslerini ve User-Agent bilgilerini kaydeder. SQLi, XSS veya kaba kuvvet saldırılarını tespit etmek için kritiktir.",
+        splDesc: [
+          "Kaynak IP adresine göre başarısız giriş denemelerini (401) sayar (Çubuk Grafik).",
+          "HTTP yanıt durum kodlarının yüzdesel dağılımını gösterir (Pasta Grafik).",
+          "Zaman içindeki web trafiği hacmini gösterir (Çizgi Grafik)."
+        ]
+      }
+    },
+    splExamples: [
+      {
+        cmd: 'index=web_logs status=401 | stats count by src_ip',
+        chartType: 'bar',
+        data: [
+          { label: '192.168.1.45 (Attacker)', value: 142, color: 'bg-rose-500' },
+          { label: '10.0.0.12 (Client)', value: 3, color: 'bg-emerald-500' },
+          { label: '172.16.0.8 (Admin)', value: 1, color: 'bg-cyan-500' }
+        ]
+      },
+      {
+        cmd: 'index=web_logs | stats count by status',
+        chartType: 'pie',
+        data: [
+          { label: '200 OK', value: 65, color: '#10b981' },
+          { label: '401 Unauthorized', value: 25, color: '#f43f5e' },
+          { label: '404 Not Found', value: 10, color: '#f59e0b' }
+        ]
+      },
+      {
+        cmd: 'index=web_logs | timechart count',
+        chartType: 'line',
+        data: [12, 19, 15, 85, 140, 45, 20]
+      }
+    ]
+  },
+  {
+    id: "windows",
+    name: "Windows Sysmon data",
+    noteDetail: "(Windows Event, PowerShell)",
+    icon: Terminal,
+    sampleRaw: 'EventID=4104 Computer=WIN-SRV01 User=SYSTEM ScriptBlockText="powershell.exe -nop -w hidden -enc JABjAD0ATgBlAHcALQBPAGIAagBlAGMAdAA..."',
+    parsed: {
+      EventID: "4104 (PowerShell Script Block)",
+      host: "WIN-SRV01",
+      user: "SYSTEM",
+      process: "powershell.exe",
+      flags: "-nop -w hidden -enc (Encoded)",
+      category: "Suspicious Execution / Malware"
+    },
+    i18n: {
+      es: {
+        localName: "Datos de Windows Sysmon (Eventos de Windows, PowerShell)",
+        explanation: "Monitorea actividad profunda del sistema Windows: creación de procesos (Event ID 1), conexiones de red (Event ID 3) y ejecución de comandos o scripts ocultos en PowerShell (Event ID 4104).",
+        splDesc: [
+          "Equipos con mayor ejecución de bloques de scripts en PowerShell (Gráfico de Barras).",
+          "Proporción de tipos de eventos de Sysmon recolectados (Gráfico Circular).",
+          "Picos de actividad de PowerShell por intervalo de tiempo (Gráfico de Líneas)."
+        ]
+      },
+      en: {
+        localName: "Windows Sysmon data (Windows Event, PowerShell)",
+        explanation: "Monitors deep Windows OS activity: process creation (Event ID 1), network connections (Event ID 3), and obfuscated or malicious PowerShell script executions (Event ID 4104).",
+        splDesc: [
+          "Hosts with the highest number of PowerShell script block executions (Bar Chart).",
+          "Proportion of collected Sysmon Event IDs (Pie Chart).",
+          "PowerShell execution spikes over time (Line Chart)."
+        ]
+      },
+      tr: {
+        localName: "Windows Sysmon verileri (Windows Event, PowerShell)",
+        explanation: "Windows işletim sistemindeki derin aktiviteleri izler: işlem oluşturma (Event ID 1), ağ bağlantıları (Event ID 3) ve gizlenmiş/şifrelenmiş PowerShell komut çalıştırmaları (Event ID 4104).",
+        splDesc: [
+          "En fazla PowerShell betik bloğu çalıştıran bilgisayarlar (Çubuk Grafik).",
+          "Toplanan Sysmon olay türlerinin (EventID) oranı (Pasta Grafik).",
+          "Zaman içinde PowerShell aktivite zirveleri (Çizgi Grafik)."
+        ]
+      }
+    },
+    splExamples: [
+      {
+        cmd: 'index=win_sysmon EventID=4104 | stats count by host',
+        chartType: 'bar',
+        data: [
+          { label: 'WIN-SRV01', value: 89, color: 'bg-rose-500' },
+          { label: 'WIN-WS04', value: 24, color: 'bg-amber-500' },
+          { label: 'WIN-DC01', value: 5, color: 'bg-emerald-500' }
+        ]
+      },
+      {
+        cmd: 'index=win_sysmon | stats count by EventID',
+        chartType: 'pie',
+        data: [
+          { label: 'ID 1 (Process Create)', value: 55, color: '#06b6d4' },
+          { label: 'ID 3 (Network Conn)', value: 30, color: '#8b5cf6' },
+          { label: 'ID 4104 (PowerShell)', value: 15, color: '#f43f5e' }
+        ]
+      },
+      {
+        cmd: 'index=win_sysmon process="powershell.exe" | timechart count',
+        chartType: 'line',
+        data: [5, 4, 8, 95, 110, 15, 6]
+      }
+    ]
+  },
+  {
+    id: "linux",
+    name: "Linux",
+    noteDetail: "(Host-centric logs)",
+    icon: Server,
+    sampleRaw: 'Nov 15 10:18:04 prod-ubuntu-01 sshd[2410]: Failed password for root from 203.0.113.88 port 54321 ssh2',
+    parsed: {
+      timestamp: "Nov 15 10:18:04",
+      host: "prod-ubuntu-01",
+      service: "sshd",
+      action: "Failed password",
+      target_user: "root",
+      src_ip: "203.0.113.88"
+    },
+    i18n: {
+      es: {
+        localName: "Linux (Logs centrados en el Host)",
+        explanation: "Incluye registros clave del sistema como /var/log/auth.log o /var/log/secure (accesos SSH, uso de sudo), syslog y eventos del kernel. Esencial para auditar accesos y escalada de privilegios.",
+        splDesc: [
+          "Usuarios de Linux más atacados mediante fuerza bruta SSH (Gráfico de Barras).",
+          "Distribución de logs generados por servicio del host (Gráfico Circular).",
+          "Línea de tiempo de intentos fallidos de autenticación SSH (Gráfico de Líneas)."
+        ]
+      },
+      en: {
+        localName: "Linux (Host-centric logs)",
+        explanation: "Covers core host logs such as /var/log/auth.log or /var/log/secure (SSH logins, sudo usage), syslog, and kernel events. Crucial for auditing access and privilege escalation.",
+        splDesc: [
+          "Most targeted Linux accounts via SSH brute-force attacks (Bar Chart).",
+          "Distribution of host logs by Linux service (Pie Chart).",
+          "Timeline of failed SSH authentication attempts (Line Chart)."
+        ]
+      },
+      tr: {
+        localName: "Linux (Sunucu odaklı loglar)",
+        explanation: "/var/log/auth.log veya /var/log/secure (SSH girişleri, sudo kullanımı), syslog ve çekirdek (kernel) olayları gibi kritik sunucu kayıtlarını içerir. Yetki yükseltme ve erişim denetimi için temeldir.",
+        splDesc: [
+          "SSH kaba kuvvet saldırılarında en çok hedef alınan Linux kullanıcıları (Çubuk Grafik).",
+          "Sunucu servislerine göre üretilen log dağılımı (Pasta Grafik).",
+          "Başarısız SSH kimlik doğrulama denemelerinin zaman çizelgesi (Çizgi Grafik)."
+        ]
+      }
+    },
+    splExamples: [
+      {
+        cmd: 'index=linux_hosts service=sshd action="Failed password" | stats count by target_user',
+        chartType: 'bar',
+        data: [
+          { label: 'root', value: 310, color: 'bg-rose-500' },
+          { label: 'admin', value: 120, color: 'bg-amber-500' },
+          { label: 'ubuntu', value: 45, color: 'bg-cyan-500' }
+        ]
+      },
+      {
+        cmd: 'index=linux_hosts | stats count by service',
+        chartType: 'pie',
+        data: [
+          { label: 'sshd (Auth)', value: 60, color: '#10b981' },
+          { label: 'sudo (Privs)', value: 25, color: '#f59e0b' },
+          { label: 'cron (Tasks)', value: 15, color: '#6366f1' }
+        ]
+      },
+      {
+        cmd: 'index=linux_hosts action="Failed password" | timechart count',
+        chartType: 'line',
+        data: [10, 12, 250, 310, 40, 15, 8]
+      }
+    ]
+  },
+  {
+    id: "database",
+    name: "Database",
+    noteDetail: "(DB requests, responses, errors)",
+    icon: Database,
+    sampleRaw: '2026-11-15 10:22:11 UTC [4092]: ERROR: syntax error at or near "UNION" at character 65 STATEMENT: SELECT * FROM users WHERE id = 1 UNION SELECT username, password FROM admins--',
+    parsed: {
+      timestamp: "2026-11-15 10:22:11 UTC",
+      process_id: "4092",
+      log_level: "ERROR",
+      db_error: "syntax error at or near UNION",
+      query: "SELECT * FROM users ... UNION SELECT...",
+      category: "SQL Injection Attempt"
+    },
+    i18n: {
+      es: {
+        localName: "Base de Datos (Peticiones, respuestas y errores de BD)",
+        explanation: "Registra consultas SQL ejecutadas (DB requests), tiempos y filas devueltas (responses) y fallos de sintaxis o permisos (errors). Permite detectar inyecciones SQL y exfiltración de datos.",
+        splDesc: [
+          "Conteo de actividad de base de datos por categoría: Requests, Warnings y Errors (Gráfico de Barras).",
+          "Proporción de tipos de operaciones en la Base de Datos (Gráfico Circular).",
+          "Frecuencia de errores de base de datos en el tiempo (Gráfico de Líneas)."
+        ]
+      },
+      en: {
+        localName: "Database (DB requests, responses, errors)",
+        explanation: "Logs executed SQL queries (DB requests), query results/latency (responses), and syntax or permission failures (errors). Key for detecting SQL injection and data exfiltration.",
+        splDesc: [
+          "Database event count by severity: Requests/Responses vs. Errors (Bar Chart).",
+          "Breakdown of Database operation types (Pie Chart).",
+          "Frequency of Database errors over time (Line Chart)."
+        ]
+      },
+      tr: {
+        localName: "Veritabanı (DB istekleri, yanıtları ve hataları)",
+        explanation: "Çalıştırılan SQL sorgularını (DB requests), sorgu yanıtlarını (responses) ve sözdizimi/yetki hatalarını (errors) kaydeder. SQL Injection ve veri sızıntılarını tespit etmek için kullanılır.",
+        splDesc: [
+          "Önem derecesine göre veritabanı olay sayısı: İstek/Yanıt ve Hatalar (Çubuk Grafik).",
+          "Veritabanı işlem türlerinin oransal dağılımı (Pasta Grafik).",
+          "Zaman içinde oluşan veritabanı hatalarının sıklığı (Çizgi Grafik)."
+        ]
+      }
+    },
+    splExamples: [
+      {
+        cmd: 'index=db_logs | stats count by log_level',
+        chartType: 'bar',
+        data: [
+          { label: 'INFO (DB Requests/Responses)', value: 420, color: 'bg-emerald-500' },
+          { label: 'WARNING (Slow Queries)', value: 65, color: 'bg-amber-500' },
+          { label: 'ERROR (Syntax / Auth Errors)', value: 38, color: 'bg-rose-500' }
+        ]
+      },
+      {
+        cmd: 'index=db_logs | stats count by db_operation',
+        chartType: 'pie',
+        data: [
+          { label: 'SELECT (Requests)', value: 70, color: '#06b6d4' },
+          { label: 'UPDATE/INSERT', value: 20, color: '#10b981' },
+          { label: 'DB Errors', value: 10, color: '#f43f5e' }
+        ]
+      },
+      {
+        cmd: 'index=db_logs log_level=ERROR | timechart count',
+        chartType: 'line',
+        data: [2, 1, 3, 42, 38, 5, 2]
+      }
+    ]
+  }
+];
+
+// ==========================================
+// COMPONENTE PRINCIPAL
+// ==========================================
+
+export default function App() {
+  const [lang, setLang] = useState('es'); // 'es' | 'en' | 'tr'
+  const [activeTab, setActiveTab] = useState('architecture');
+  const [darkMode, setDarkMode] = useState(true);
+  const [showOriginalNotesModal, setShowOriginalNotesModal] = useState(false);
+
+  // Estados para Pestaña 1: Arquitectura Interactiva
+  const [selectedNode, setSelectedNode] = useState('forwarder');
+  const [activeSourceId, setActiveSourceId] = useState('webserver');
+  const [isSimulatingFlow, setIsSimulatingFlow] = useState(true);
+
+  // Estados para Pestaña 2: Simulador Pipeline & SPL
+  const [simSourceId, setSimSourceId] = useState('windows');
+  const [selectedSplIndex, setSelectedSplIndex] = useState(0);
+
+  // Estados para Pestaña 3: Flashcards
+  const [currentCard, setCurrentCard] = useState(0);
+  const [isFlipped, setIsFlipped] = useState(false);
+  const [masteredCards, setMasteredCards] = useState([]);
+
+  // Estados para Pestaña 4: Quiz
+  const [quizAnswers, setQuizAnswers] = useState({});
+  const [quizSubmitted, setQuizSubmitted] = useState(false);
+
+  const t = I18N[lang];
+  const currentSimSource = SOURCES_DATA.find(s => s.id === simSourceId) || SOURCES_DATA[0];
+  const currentSplExample = currentSimSource.splExamples[selectedSplIndex] || currentSimSource.splExamples[0];
+  const currentSplDesc = currentSimSource.i18n[lang].splDesc[selectedSplIndex];
+
+  const handleSelectSimSource = (id) => {
+    setSimSourceId(id);
+    setSelectedSplIndex(0);
+  };
+
+  const toggleMastered = (index) => {
+    if (masteredCards.includes(index)) {
+      setMasteredCards(masteredCards.filter(i => i !== index));
+    } else {
+      setMasteredCards([...masteredCards, index]);
+    }
+  };
+
+  const calculateQuizScore = () => {
+    let correct = 0;
+    t.quiz.questions.forEach((q, idx) => {
+      if (quizAnswers[idx] === q.correct) correct++;
+    });
+    return correct;
+  };
+
+  return (
+    <div className={`min-h-screen transition-colors duration-300 ${darkMode ? 'bg-slate-950 text-slate-100' : 'bg-slate-50 text-slate-900'}`}>
+      
+      {/* BARRA DE NAVEGACIÓN SUPERIOR */}
+      <header className={`sticky top-0 z-30 border-b backdrop-blur-md ${darkMode ? 'bg-slate-900/90 border-slate-800' : 'bg-white/90 border-slate-200'}`}>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex flex-wrap items-center justify-between py-3 gap-4">
+            
+            {/* Logo y Título */}
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-cyan-600 flex items-center justify-center shadow-lg shadow-emerald-500/20">
+                <Shield className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h1 className="text-xl font-bold tracking-tight">
+                    Splunk <span className="text-emerald-500">SIEM</span>
+                  </h1>
+                  <span className={`text-xs px-2 py-0.5 rounded-full font-medium border ${darkMode ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30' : 'bg-emerald-50 text-emerald-700 border-emerald-200'}`}>
+                    {t.badge}
+                  </span>
+                </div>
+                <p className={`text-xs ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                  Network ➔ Logs ➔ Forwarder ➔ Indexer ➔ Search Head
+                </p>
+              </div>
+            </div>
+
+            {/* Controles Superiores: Selector de Idioma (ES / EN / TR), Modal Cuaderno y Tema */}
+            <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+              
+              {/* Selector de Idioma Trilingüe */}
+              <div className={`flex items-center p-1 rounded-xl border ${darkMode ? 'bg-slate-950 border-slate-800' : 'bg-slate-100 border-slate-200'}`}>
+                <Globe className="w-3.5 h-3.5 ml-2 mr-1 text-emerald-500 hidden sm:inline" />
+                {[
+                  { code: 'es', label: '🇪🇸 ES', name: 'Español' },
+                  { code: 'en', label: '🇬🇧 EN', name: 'English' },
+                  { code: 'tr', label: '🇹🇷 TR', name: 'Türkçe' }
+                ].map((item) => (
+                  <button
+                    key={item.code}
+                    onClick={() => {
+                      setLang(item.code);
+                      setIsFlipped(false);
+                    }}
+                    title={item.name}
+                    className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all ${
+                      lang === item.code
+                        ? 'bg-emerald-500 text-slate-950 shadow-sm'
+                        : darkMode ? 'text-slate-400 hover:text-white' : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    {item.label}
+                  </button>
+                ))}
+              </div>
+
+              <button
+                onClick={() => setShowOriginalNotesModal(true)}
+                className={`flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold border transition-all ${
+                  darkMode 
+                    ? 'bg-slate-800 hover:bg-slate-700 text-amber-400 border-slate-700' 
+                    : 'bg-amber-50 hover:bg-amber-100 text-amber-800 border-amber-200'
+                }`}
+              >
+                <FileText className="w-4 h-4" />
+                <span className="hidden sm:inline">{t.viewNotebookBtn}</span>
+              </button>
+
+              <button
+                onClick={() => setDarkMode(!darkMode)}
+                className={`p-2 rounded-xl border transition-colors ${
+                  darkMode ? 'bg-slate-800 border-slate-700 text-slate-300 hover:text-white' : 'bg-slate-100 border-slate-200 text-slate-700 hover:text-slate-900'
+                }`}
+                title={t.themeTooltip}
+              >
+                {darkMode ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4" />}
+              </button>
+            </div>
+          </div>
+
+          {/* Pestañas de Navegación */}
+          <nav className="flex space-x-1 overflow-x-auto py-2 no-scrollbar">
+            {[
+              { id: 'architecture', label: t.tabs.architecture, icon: Share2 },
+              { id: 'simulator', label: t.tabs.simulator, icon: Terminal },
+              { id: 'flashcards', label: t.tabs.flashcards, icon: BookOpen },
+              { id: 'quiz', label: t.tabs.quiz, icon: Award },
+            ].map((tab) => {
+              const Icon = tab.icon;
+              const isActive = activeTab === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`flex items-center gap-2 px-4 py-2.5 rounded-t-lg text-xs sm:text-sm font-semibold whitespace-nowrap border-b-2 transition-all ${
+                    isActive
+                      ? 'border-emerald-500 text-emerald-500 bg-emerald-500/10'
+                      : `border-transparent ${darkMode ? 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50' : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'}`
+                  }`}
+                >
+                  <Icon className="w-4 h-4" />
+                  <span>{tab.label}</span>
+                </button>
+              );
+            })}
+          </nav>
+        </div>
+      </header>
+
+      {/* CONTENIDO PRINCIPAL */}
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-8">
+
+        {/* ==========================================
+            PESTAÑA 1: ARQUITECTURA INTERACTIVA
+        ========================================== */}
+        {activeTab === 'architecture' && (
+          <div className="space-y-6">
+            
+            {/* Cabecera Conceptual: Network -> Logs -> Splunk + 3 Pilares */}
+            <div className={`p-5 rounded-2xl border ${darkMode ? 'bg-slate-900/70 border-slate-800' : 'bg-white border-slate-200 shadow-sm'}`}>
+              <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+                
+                {/* Flujo Principal */}
+                <div className="space-y-2 max-w-xl">
+                  <div className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-emerald-500">
+                    <Sparkles className="w-4 h-4" /> {t.arch.conceptBadge}
+                  </div>
+                  <h2 className="text-2xl font-bold flex flex-wrap items-center gap-2">
+                    <span>Network</span>
+                    <span className="text-xs px-2.5 py-1 rounded-full bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 font-mono">
+                      Logs ➔
+                    </span>
+                    <span className="text-emerald-500">Splunk SIEM</span>
+                  </h2>
+                  <p className={`text-sm leading-relaxed ${darkMode ? 'text-slate-300' : 'text-slate-600'}`}>
+                    {t.arch.conceptDesc}
+                  </p>
+                </div>
+
+                {/* Los 3 Pilares: Monitoring, Visibility, Observability */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 lg:w-3/5">
+                  {t.arch.goals.map((goal) => {
+                    const Icon = goal.icon;
+                    return (
+                      <div 
+                        key={goal.term} 
+                        className={`p-3.5 rounded-xl border ${goal.bg} ${goal.border} transition-transform hover:-translate-y-0.5`}
+                      >
+                        <div className="flex items-center gap-2 mb-1">
+                          <Icon className={`w-4 h-4 ${goal.color}`} />
+                          <span className="font-bold text-sm">{goal.term}</span>
+                        </div>
+                        <div className="text-xs font-semibold opacity-80 mb-1.5">({goal.local})</div>
+                        <p className={`text-xs leading-snug ${darkMode ? 'text-slate-300' : 'text-slate-600'}`}>
+                          {goal.desc}
+                        </p>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+
+            {/* DIAGRAMA INTERACTIVO DE LOS 3 COMPONENTES */}
+            <div className={`p-6 rounded-2xl border ${darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200 shadow-sm'}`}>
+              <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
+                <div>
+                  <h3 className="text-lg font-bold flex flex-wrap items-center gap-2">
+                    <span>{t.arch.mapTitle}</span>
+                    <span className="text-xs font-normal px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                      {t.arch.mapHint}
+                    </span>
+                  </h3>
+                  <p className={`text-xs mt-1 ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                    {t.arch.mapSub}
+                  </p>
+                </div>
+
+                <button
+                  onClick={() => setIsSimulatingFlow(!isSimulatingFlow)}
+                  className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${
+                    isSimulatingFlow
+                      ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/40'
+                      : darkMode ? 'bg-slate-800 text-slate-400 border-slate-700' : 'bg-slate-100 text-slate-600 border-slate-300'
+                  }`}
+                >
+                  <Activity className={`w-3.5 h-3.5 ${isSimulatingFlow ? 'animate-pulse' : ''}`} />
+                  <span>{isSimulatingFlow ? t.arch.flowActive : t.arch.flowPaused}</span>
+                </button>
+              </div>
+
+              {/* Esquema Visual de 3 Columnas */}
+              <div className="grid grid-cols-1 lg:grid-cols-11 gap-4 items-stretch">
+                
+                {/* BLOQUE 1: FORWARDER */}
+                <div 
+                  onClick={() => setSelectedNode('forwarder')}
+                  className={`lg:col-span-3 p-5 rounded-xl border-2 cursor-pointer transition-all flex flex-col justify-between ${
+                    selectedNode === 'forwarder'
+                      ? 'border-emerald-500 bg-emerald-500/5 shadow-lg shadow-emerald-500/10'
+                      : darkMode ? 'border-slate-800 bg-slate-950/60 hover:border-slate-700' : 'border-slate-200 bg-slate-50 hover:border-slate-300'
+                  }`}
+                >
+                  <div>
+                    <div className="flex items-center justify-between mb-3">
+                      <span className="text-xs font-bold uppercase tracking-wider px-2.5 py-1 rounded bg-emerald-500/20 text-emerald-400">
+                        1. Forwarder
+                      </span>
+                      <Server className="w-5 h-5 text-emerald-400" />
+                    </div>
+                    <h4 className="text-lg font-bold mb-1">{t.arch.forwarder.title}</h4>
+                    <p className="text-xs font-mono text-emerald-400 mb-3">
+                      "Agent installed ➔ Sending data to Splunk instance"
+                    </p>
+                    
+                    <div className="space-y-2 mt-4">
+                      <div className="text-xs font-semibold uppercase tracking-wider opacity-70">
+                        {t.arch.sourcesLabel}
+                      </div>
+                      {SOURCES_DATA.map((src) => {
+                        const SrcIcon = src.icon;
+                        return (
+                          <div 
+                            key={src.id}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedNode('forwarder');
+                              setActiveSourceId(src.id);
+                            }}
+                            className={`p-2.5 rounded-lg border text-xs flex items-center justify-between transition-all ${
+                              selectedNode === 'forwarder' && activeSourceId === src.id
+                                ? 'bg-emerald-500/20 border-emerald-500 text-emerald-300 font-semibold'
+                                : darkMode ? 'bg-slate-900 border-slate-800 hover:border-slate-700' : 'bg-white border-slate-200 hover:border-slate-300'
+                            }`}
+                          >
+                            <div className="flex items-center gap-2">
+                              <SrcIcon className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                              <div>
+                                <div>{src.name}</div>
+                                <div className="text-[10px] opacity-70">{src.noteDetail}</div>
+                              </div>
+                            </div>
+                            <ChevronRight className="w-3.5 h-3.5 opacity-60" />
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  <div className="mt-4 pt-3 border-t border-slate-800/50 flex items-center justify-between text-xs text-emerald-400 font-medium">
+                    <span>{t.arch.forwarder.footer}</span>
+                    <span>{t.arch.clickDetails}</span>
+                  </div>
+                </div>
+
+                {/* FLECHA CONECTORA 1 -> 2 */}
+                <div className="lg:col-span-1 flex lg:flex-col items-center justify-center py-2 lg:py-0">
+                  <div className="flex lg:flex-col items-center gap-1 text-center">
+                    <span className="text-[10px] font-mono uppercase tracking-wider text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
+                      Raw Logs
+                    </span>
+                    <div className="relative flex items-center justify-center my-1">
+                      <ArrowRight className={`w-6 h-6 text-emerald-500 transform rotate-90 lg:rotate-0 ${isSimulatingFlow ? 'animate-bounce' : ''}`} />
+                    </div>
+                  </div>
+                </div>
+
+                {/* BLOQUE 2: INDEXER */}
+                <div 
+                  onClick={() => setSelectedNode('indexer')}
+                  className={`lg:col-span-3 p-5 rounded-xl border-2 cursor-pointer transition-all flex flex-col justify-between ${
+                    selectedNode === 'indexer'
+                      ? 'border-cyan-500 bg-cyan-500/5 shadow-lg shadow-cyan-500/10'
+                      : darkMode ? 'border-slate-800 bg-slate-950/60 hover:border-slate-700' : 'border-slate-200 bg-slate-50 hover:border-slate-300'
+                  }`}
+                >
+                  <div>
+                    <div className="flex items-center justify-between mb-3">
+                      <span className="text-xs font-bold uppercase tracking-wider px-2.5 py-1 rounded bg-cyan-500/20 text-cyan-400">
+                        2. Indexer
+                      </span>
+                      <Cpu className="w-5 h-5 text-cyan-400" />
+                    </div>
+                    <h4 className="text-lg font-bold mb-1">{t.arch.indexer.title}</h4>
+                    <p className="text-xs font-mono text-cyan-400 mb-3">
+                      "{t.arch.indexer.sub}"
+                    </p>
+
+                    <div className="space-y-2 mt-4">
+                      <div className="text-xs font-semibold uppercase tracking-wider opacity-70">
+                        {t.arch.processesLabel}
+                      </div>
+                      {t.arch.indexer.processes.map((proc) => {
+                        const ProcIcon = proc.icon;
+                        return (
+                          <div 
+                            key={proc.step}
+                            className={`p-2.5 rounded-lg border text-xs flex items-center gap-2.5 ${
+                              darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'
+                            }`}
+                          >
+                            <ProcIcon className="w-4 h-4 text-cyan-400 shrink-0" />
+                            <div>
+                              <span className="font-bold text-cyan-400">{proc.step}</span>
+                              <span className="opacity-75 ml-1.5">({proc.local})</span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  <div className="mt-4 pt-3 border-t border-slate-800/50 flex items-center justify-between text-xs text-cyan-400 font-medium">
+                    <span>{t.arch.indexer.footer}</span>
+                    <span>{t.arch.clickDetails}</span>
+                  </div>
+                </div>
+
+                {/* FLECHA CONECTORA 2 <-> 3 */}
+                <div className="lg:col-span-1 flex lg:flex-col items-center justify-center py-2 lg:py-0">
+                  <div className="flex lg:flex-col items-center gap-1 text-center">
+                    <span className="text-[10px] font-mono uppercase tracking-wider text-purple-400 bg-purple-500/10 px-2 py-0.5 rounded border border-purple-500/20">
+                      SPL Query
+                    </span>
+                    <div className="relative flex items-center justify-center my-1">
+                      <ArrowRight className={`w-6 h-6 text-purple-400 transform rotate-90 lg:rotate-0 ${isSimulatingFlow ? 'animate-pulse' : ''}`} />
+                    </div>
+                  </div>
+                </div>
+
+                {/* BLOQUE 3: SEARCH HEAD */}
+                <div 
+                  onClick={() => setSelectedNode('searchHead')}
+                  className={`lg:col-span-3 p-5 rounded-xl border-2 cursor-pointer transition-all flex flex-col justify-between ${
+                    selectedNode === 'searchHead'
+                      ? 'border-purple-500 bg-purple-500/5 shadow-lg shadow-purple-500/10'
+                      : darkMode ? 'border-slate-800 bg-slate-950/60 hover:border-slate-700' : 'border-slate-200 bg-slate-50 hover:border-slate-300'
+                  }`}
+                >
+                  <div>
+                    <div className="flex items-center justify-between mb-3">
+                      <span className="text-xs font-bold uppercase tracking-wider px-2.5 py-1 rounded bg-purple-500/20 text-purple-400">
+                        3. Search Head
+                      </span>
+                      <Search className="w-5 h-5 text-purple-400" />
+                    </div>
+                    <h4 className="text-lg font-bold mb-1">{t.arch.searchHead.title}</h4>
+                    <p className="text-xs font-mono text-purple-400 mb-3">
+                      "Search and Report App"
+                    </p>
+
+                    <div className="space-y-2.5 mt-4">
+                      <div className={`p-2.5 rounded-lg border text-xs ${darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'}`}>
+                        <div className="font-bold text-purple-400">• SPL</div>
+                        <div className="text-[11px] opacity-80">Search Processing Language</div>
+                      </div>
+
+                      <div className={`p-2.5 rounded-lg border text-xs ${darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'}`}>
+                        <div className="text-[11px] font-semibold mb-2 opacity-80">{t.arch.visualsLabel}</div>
+                        <div className="grid grid-cols-3 gap-2 text-center">
+                          <div className="p-1.5 rounded bg-purple-500/10 border border-purple-500/20 flex flex-col items-center">
+                            <Activity className="w-4 h-4 text-purple-400 mb-1" />
+                            <span className="text-[10px]">{t.arch.charts.line}</span>
+                          </div>
+                          <div className="p-1.5 rounded bg-purple-500/10 border border-purple-500/20 flex flex-col items-center">
+                            <PieChart className="w-4 h-4 text-purple-400 mb-1" />
+                            <span className="text-[10px]">{t.arch.charts.pie}</span>
+                          </div>
+                          <div className="p-1.5 rounded bg-purple-500/10 border border-purple-500/20 flex flex-col items-center">
+                            <BarChart2 className="w-4 h-4 text-purple-400 mb-1" />
+                            <span className="text-[10px]">{t.arch.charts.bar}</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className={`p-2.5 rounded-lg border text-xs ${darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'}`}>
+                        <div className="font-bold text-purple-400">• Create Dashboard</div>
+                        <div className="font-bold text-purple-400">• Tables</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="mt-4 pt-3 border-t border-slate-800/50 flex items-center justify-between text-xs text-purple-400 font-medium">
+                    <span>{t.arch.searchHead.footer}</span>
+                    <span>{t.arch.clickDetails}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* PANEL DE EXPLICACIÓN DETALLADA DEL COMPONENTE SELECCIONADO */}
+              <div className={`mt-6 p-6 rounded-xl border ${darkMode ? 'bg-slate-950 border-slate-800' : 'bg-slate-50 border-slate-200'}`}>
+                
+                {/* DETALLE: FORWARDER */}
+                {selectedNode === 'forwarder' && (
+                  <div className="space-y-5">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-800 pb-4">
+                      <div>
+                        <span className="text-xs font-bold uppercase text-emerald-400">{t.arch.selectedComp}</span>
+                        <h4 className="text-xl font-bold mt-0.5">
+                          {t.arch.forwarder.title} — <span className="text-emerald-400 font-mono text-base">Agent installed</span>
+                        </h4>
+                      </div>
+                      <button
+                        onClick={() => setActiveTab('simulator')}
+                        className="self-start sm:self-auto px-3 py-1.5 rounded-lg bg-emerald-500 text-slate-950 font-bold text-xs hover:bg-emerald-400 transition"
+                      >
+                        {t.arch.trySimulatorBtn}
+                      </button>
+                    </div>
+
+                    <p className={`text-sm leading-relaxed ${darkMode ? 'text-slate-300' : 'text-slate-700'}`}>
+                      {t.arch.forwarder.desc}
+                    </p>
+
+                    <div>
+                      <h5 className="text-xs font-bold uppercase tracking-wider text-emerald-400 mb-3">
+                        {t.arch.forwarder.sourcesHeading}
+                      </h5>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {SOURCES_DATA.map((src) => {
+                          const SrcIcon = src.icon;
+                          const isSelected = activeSourceId === src.id;
+                          const loc = src.i18n[lang];
+                          return (
+                            <div
+                              key={src.id}
+                              onClick={() => setActiveSourceId(src.id)}
+                              className={`p-4 rounded-xl border cursor-pointer transition-all ${
+                                isSelected
+                                  ? 'border-emerald-500 bg-emerald-500/10'
+                                  : darkMode ? 'border-slate-800 bg-slate-900 hover:border-slate-700' : 'border-slate-200 bg-white'
+                              }`}
+                            >
+                              <div className="flex items-start justify-between gap-3 mb-2">
+                                <div className="flex items-center gap-2.5">
+                                  <div className="p-2 rounded-lg bg-emerald-500/20 text-emerald-400">
+                                    <SrcIcon className="w-5 h-5" />
+                                  </div>
+                                  <div>
+                                    <div className="font-bold text-base">{src.name} <span className="text-emerald-400 font-mono text-xs">{src.noteDetail}</span></div>
+                                    <div className="text-xs opacity-75">{loc.localName}</div>
+                                  </div>
+                                </div>
+                              </div>
+                              <p className={`text-xs leading-relaxed mt-2 ${darkMode ? 'text-slate-300' : 'text-slate-600'}`}>
+                                {loc.explanation}
+                              </p>
+                              <div className={`mt-3 p-2.5 rounded-lg font-mono text-[11px] overflow-x-auto border ${darkMode ? 'bg-slate-950 border-slate-800 text-emerald-300' : 'bg-slate-900 text-emerald-300 border-slate-800'}`}>
+                                <span className="text-slate-500 select-none">{t.arch.sampleLogLabel}</span>
+                                {src.sampleRaw}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* DETALLE: INDEXER */}
+                {selectedNode === 'indexer' && (
+                  <div className="space-y-5">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-800 pb-4">
+                      <div>
+                        <span className="text-xs font-bold uppercase text-cyan-400">{t.arch.selectedComp}</span>
+                        <h4 className="text-xl font-bold mt-0.5">
+                          {t.arch.indexer.title} — <span className="text-cyan-400 font-mono text-base">{t.arch.indexer.sub}</span>
+                        </h4>
+                      </div>
+                      <button
+                        onClick={() => setActiveTab('simulator')}
+                        className="self-start sm:self-auto px-3 py-1.5 rounded-lg bg-cyan-500 text-slate-950 font-bold text-xs hover:bg-cyan-400 transition"
+                      >
+                        {t.arch.seeLogProcessBtn}
+                      </button>
+                    </div>
+
+                    <p className={`text-sm leading-relaxed ${darkMode ? 'text-slate-300' : 'text-slate-700'}`}>
+                      {t.arch.indexer.desc}
+                    </p>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                      {t.arch.indexer.processes.map((proc) => {
+                        const ProcIcon = proc.icon;
+                        return (
+                          <div 
+                            key={proc.step}
+                            className={`p-4 rounded-xl border ${darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'}`}
+                          >
+                            <div className="w-9 h-9 rounded-lg bg-cyan-500/20 text-cyan-400 flex items-center justify-center mb-3">
+                              <ProcIcon className="w-5 h-5" />
+                            </div>
+                            <div className="font-bold text-base text-cyan-400">{proc.step}</div>
+                            <div className="text-xs font-semibold mb-2">({proc.local})</div>
+                            <p className={`text-xs leading-relaxed ${darkMode ? 'text-slate-300' : 'text-slate-600'}`}>
+                              {proc.desc}
+                            </p>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* DETALLE: SEARCH HEAD */}
+                {selectedNode === 'searchHead' && (
+                  <div className="space-y-5">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-800 pb-4">
+                      <div>
+                        <span className="text-xs font-bold uppercase text-purple-400">{t.arch.selectedComp}</span>
+                        <h4 className="text-xl font-bold mt-0.5">
+                          {t.arch.searchHead.title} — <span className="text-purple-400 font-mono text-base">Search & Report App</span>
+                        </h4>
+                      </div>
+                      <button
+                        onClick={() => setActiveTab('simulator')}
+                        className="self-start sm:self-auto px-3 py-1.5 rounded-lg bg-purple-500 text-white font-bold text-xs hover:bg-purple-400 transition"
+                      >
+                        {t.arch.trySplBtn}
+                      </button>
+                    </div>
+
+                    <p className={`text-sm leading-relaxed ${darkMode ? 'text-slate-300' : 'text-slate-700'}`}>
+                      {t.arch.searchHead.desc}
+                    </p>
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      {t.arch.searchHead.features.map((feat) => (
+                        <div 
+                          key={feat.title}
+                          className={`p-4 rounded-xl border ${darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'}`}
+                        >
+                          <div className="font-bold text-base text-purple-400 mb-0.5">{feat.title}</div>
+                          <div className="text-xs font-semibold opacity-75 mb-2">({feat.local})</div>
+                          <p className={`text-xs leading-relaxed ${darkMode ? 'text-slate-300' : 'text-slate-600'}`}>
+                            {feat.desc}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ==========================================
+            PESTAÑA 2: SIMULADOR DE PIPELINE & SPL
+        ========================================== */}
+        {activeTab === 'simulator' && (
+          <div className="space-y-6">
+            
+            {/* Selector de Fuente de Datos */}
+            <div className={`p-6 rounded-2xl border ${darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200 shadow-sm'}`}>
+              <div className="mb-5">
+                <span className="text-xs font-bold uppercase tracking-wider text-emerald-500">
+                  {t.sim.badge}
+                </span>
+                <h2 className="text-xl font-bold mt-0.5">
+                  {t.sim.title}
+                </h2>
+                <p className={`text-xs mt-1 ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                  {t.sim.subtitle}
+                </p>
+              </div>
+
+              {/* Botones de las 4 Fuentes del Cuaderno */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                {SOURCES_DATA.map((src) => {
+                  const SrcIcon = src.icon;
+                  const isSelected = simSourceId === src.id;
+                  return (
+                    <button
+                      key={src.id}
+                      onClick={() => handleSelectSimSource(src.id)}
+                      className={`p-3.5 rounded-xl border text-left transition-all flex items-center gap-3 ${
+                        isSelected
+                          ? 'border-emerald-500 bg-emerald-500/15 shadow-md shadow-emerald-500/10'
+                          : darkMode ? 'border-slate-800 bg-slate-950/60 hover:border-slate-700' : 'border-slate-200 bg-slate-50 hover:border-slate-300'
+                      }`}
+                    >
+                      <div className={`p-2.5 rounded-lg ${isSelected ? 'bg-emerald-500 text-slate-950' : 'bg-slate-800 text-emerald-400'}`}>
+                        <SrcIcon className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <div className="font-bold text-sm">{src.name}</div>
+                        <div className="text-[11px] text-emerald-400 font-mono">{src.noteDetail}</div>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* VISTA DE LAS 3 ETAPAS DEL PIPELINE */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+              
+              {/* COLUMNA IZQUIERDA (5 cols): Forwarder + Indexer */}
+              <div className="lg:col-span-5 space-y-6">
+                
+                {/* ETAPA 1: FORWARDER */}
+                <div className={`p-5 rounded-2xl border ${darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'}`}>
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-xs font-bold uppercase px-2.5 py-1 rounded bg-emerald-500/20 text-emerald-400">
+                      {t.sim.stage1Title}
+                    </span>
+                    <span className="text-xs font-mono opacity-70">Agent installed</span>
+                  </div>
+                  <p className="text-xs opacity-80 mb-3">
+                    {t.sim.stage1Desc}
+                  </p>
+                  <div className="p-3.5 rounded-xl bg-slate-950 border border-slate-800 font-mono text-xs text-emerald-400 break-all leading-relaxed">
+                    {currentSimSource.sampleRaw}
+                  </div>
+                </div>
+
+                {/* ETAPA 2: INDEXER (Parses, Normalizes, Categorizes, Store) */}
+                <div className={`p-5 rounded-2xl border ${darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'}`}>
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="text-xs font-bold uppercase px-2.5 py-1 rounded bg-cyan-500/20 text-cyan-400">
+                      {t.sim.stage2Title}
+                    </span>
+                    <span className="text-xs font-mono opacity-70">Parses • Normalizes • Categorizes • Store</span>
+                  </div>
+                  <p className="text-xs opacity-80 mb-4">
+                    {t.sim.stage2Desc}
+                  </p>
+
+                  <div className="grid grid-cols-2 gap-2.5">
+                    {Object.entries(currentSimSource.parsed).map(([key, val]) => (
+                      <div 
+                        key={key} 
+                        className={`p-2.5 rounded-lg border text-xs ${darkMode ? 'bg-slate-950 border-slate-800' : 'bg-slate-50 border-slate-200'}`}
+                      >
+                        <div className="text-[10px] font-mono uppercase text-cyan-400">{key}</div>
+                        <div className="font-semibold truncate mt-0.5" title={val}>{val}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+              </div>
+
+              {/* COLUMNA DERECHA (7 cols): ETAPA 3: SEARCH HEAD & DASHBOARD */}
+              <div className={`lg:col-span-7 p-6 rounded-2xl border flex flex-col justify-between ${darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200'}`}>
+                <div>
+                  <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
+                    <span className="text-xs font-bold uppercase px-2.5 py-1 rounded bg-purple-500/20 text-purple-400">
+                      {t.sim.stage3Title}
+                    </span>
+                    <span className="text-xs font-mono text-purple-400">
+                      SPL (Search Processing Language)
+                    </span>
+                  </div>
+
+                  <p className="text-xs opacity-80 mb-4">
+                    {t.sim.stage3Desc}
+                  </p>
+
+                  {/* Selector de Comandos SPL */}
+                  <div className="space-y-2 mb-5">
+                    {currentSimSource.splExamples.map((ex, idx) => (
+                      <button
+                        key={idx}
+                        onClick={() => setSelectedSplIndex(idx)}
+                        className={`w-full p-3 rounded-xl border text-left transition-all flex items-center justify-between gap-3 ${
+                          selectedSplIndex === idx
+                            ? 'border-purple-500 bg-purple-500/15'
+                            : darkMode ? 'border-slate-800 bg-slate-950/60 hover:border-slate-700' : 'border-slate-200 bg-slate-50'
+                        }`}
+                      >
+                        <div className="font-mono text-xs text-purple-300 truncate">
+                          <span className="text-emerald-400 font-bold">SPL&gt; </span>
+                          {ex.cmd}
+                        </div>
+                        <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded bg-purple-500/20 text-purple-300 shrink-0">
+                          {ex.chartType === 'bar' ? t.arch.charts.bar : ex.chartType === 'pie' ? t.arch.charts.pie : t.arch.charts.line}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Barra de Búsqueda Activa tipo Splunk */}
+                  <div className="p-3.5 rounded-xl bg-slate-950 border border-purple-500/40 mb-5">
+                    <div className="flex items-center justify-between text-[11px] text-slate-400 mb-1">
+                      <span>{t.sim.activeBarLabel}</span>
+                      <span className="text-emerald-400 flex items-center gap-1">
+                        <Check className="w-3.5 h-3.5" /> {t.sim.queryExecuted}
+                      </span>
+                    </div>
+                    <div className="font-mono text-xs sm:text-sm text-white break-all">
+                      {currentSplExample.cmd}
+                    </div>
+                    <div className="text-xs text-purple-300 mt-2">
+                      {currentSplDesc}
+                    </div>
+                  </div>
+
+                  {/* VISUALIZACIÓN EN EL MINI DASHBOARD */}
+                  <div className={`p-5 rounded-xl border ${darkMode ? 'bg-slate-950 border-slate-800' : 'bg-slate-50 border-slate-200'}`}>
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="text-xs font-bold uppercase tracking-wider flex items-center gap-2">
+                        <LayoutGrid className="w-4 h-4 text-purple-400" />
+                        <span>{t.sim.dashboardResultTitle}</span>
+                      </div>
+                      <span className="text-xs opacity-60">{t.sim.sourceLabel}: {currentSimSource.name}</span>
+                    </div>
+
+                    {/* GRÁFICO DE BARRAS */}
+                    {currentSplExample.chartType === 'bar' && (
+                      <div className="space-y-3 py-2">
+                        {currentSplExample.data.map((item, i) => {
+                          const maxVal = Math.max(...currentSplExample.data.map(d => d.value));
+                          const widthPct = Math.max(12, Math.round((item.value / maxVal) * 100));
+                          return (
+                            <div key={i} className="space-y-1">
+                              <div className="flex justify-between text-xs">
+                                <span className="font-mono">{item.label}</span>
+                                <span className="font-bold">{item.value} {t.sim.eventsUnit}</span>
+                              </div>
+                              <div className="w-full h-3 rounded-full bg-slate-800 overflow-hidden">
+                                <div 
+                                  className={`h-full rounded-full ${item.color} transition-all duration-500`} 
+                                  style={{ width: `${widthPct}%` }}
+                                />
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+
+                    {/* GRÁFICO CIRCULAR (PIE CHART) */}
+                    {currentSplExample.chartType === 'pie' && (
+                      <div className="flex flex-col sm:flex-row items-center justify-around gap-6 py-2">
+                        <svg viewBox="0 0 36 36" className="w-32 h-32 transform -rotate-90">
+                          {(() => {
+                            let cumulative = 0;
+                            return currentSplExample.data.map((slice, idx) => {
+                              const strokeDasharray = `${slice.value} ${100 - slice.value}`;
+                              const strokeDashoffset = 100 - cumulative;
+                              cumulative += slice.value;
+                              return (
+                                <circle
+                                  key={idx}
+                                  cx="18"
+                                  cy="18"
+                                  r="15.915"
+                                  fill="transparent"
+                                  stroke={slice.color}
+                                  strokeWidth="4.5"
+                                  strokeDasharray={strokeDasharray}
+                                  strokeDashoffset={strokeDashoffset}
+                                />
+                              );
+                            });
+                          })()}
+                        </svg>
+                        <div className="space-y-2 w-full sm:w-auto">
+                          {currentSplExample.data.map((slice, idx) => (
+                            <div key={idx} className="flex items-center justify-between gap-4 text-xs">
+                              <div className="flex items-center gap-2">
+                                <span className="w-3 h-3 rounded-sm inline-block" style={{ backgroundColor: slice.color }} />
+                                <span>{slice.label}</span>
+                              </div>
+                              <span className="font-bold font-mono">{slice.value}%</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* GRÁFICO DE LÍNEAS (TIMECHART) */}
+                    {currentSplExample.chartType === 'line' && (
+                      <div className="py-2">
+                        <div className="h-36 flex items-end justify-between gap-2 pt-4 px-2 border-b border-l border-slate-700">
+                          {currentSplExample.data.map((val, idx) => {
+                            const max = Math.max(...currentSplExample.data);
+                            const heightPct = Math.max(10, Math.round((val / max) * 100));
+                            return (
+                              <div key={idx} className="flex-1 flex flex-col items-center gap-1 h-full justify-end">
+                                <span className="text-[10px] font-mono text-purple-400">{val}</span>
+                                <div 
+                                  className="w-full max-w-[28px] bg-gradient-to-t from-purple-600 to-cyan-400 rounded-t transition-all duration-500"
+                                  style={{ height: `${heightPct}%` }}
+                                />
+                              </div>
+                            );
+                          })}
+                        </div>
+                        <div className="flex justify-between text-[10px] font-mono opacity-60 pt-1.5 px-2">
+                          <span>10:00</span>
+                          <span>10:10</span>
+                          <span>10:20</span>
+                          <span>10:30 ({t.sim.peakLabel})</span>
+                          <span>10:40</span>
+                          <span>10:50</span>
+                          <span>11:00</span>
+                        </div>
+                      </div>
+                    )}
+
+                  </div>
+                </div>
+              </div>
+
+            </div>
+          </div>
+        )}
+
+        {/* ==========================================
+            PESTAÑA 3: FLASHCARDS DE ESTUDIO
+        ========================================== */}
+        {activeTab === 'flashcards' && (
+          <div className="max-w-3xl mx-auto space-y-6">
+            <div className={`p-6 rounded-2xl border ${darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200 shadow-sm'}`}>
+              <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
+                <div>
+                  <span className="text-xs font-bold uppercase tracking-wider text-emerald-500">
+                    {t.cards.badge}
+                  </span>
+                  <h2 className="text-xl font-bold mt-0.5">
+                    {t.cards.title} ({currentCard + 1} {t.cards.of} {t.cards.items.length})
+                  </h2>
+                </div>
+                <div className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                  {t.cards.mastered}: {masteredCards.length} / {t.cards.items.length}
+                </div>
+              </div>
+
+              {/* Tarjeta Interactiva */}
+              <div 
+                onClick={() => setIsFlipped(!isFlipped)}
+                className={`min-h-[260px] p-8 rounded-2xl border-2 cursor-pointer transition-all flex flex-col justify-between select-none ${
+                  isFlipped
+                    ? 'border-emerald-500 bg-emerald-500/10'
+                    : darkMode ? 'border-slate-700 bg-slate-950 hover:border-cyan-500/60' : 'border-slate-300 bg-slate-50 hover:border-cyan-500'
+                }`}
+              >
+                <div className="flex items-center justify-between text-xs">
+                  <span className={`font-bold uppercase tracking-wider px-2.5 py-1 rounded ${
+                    isFlipped ? 'bg-emerald-500 text-slate-950' : 'bg-cyan-500/20 text-cyan-400'
+                  }`}>
+                    {isFlipped ? t.cards.answerBadge : t.cards.items[currentCard].category}
+                  </span>
+                  <span className="opacity-60 flex items-center gap-1">
+                    <RefreshCw className="w-3.5 h-3.5" /> {t.cards.clickToFlip}
+                  </span>
+                </div>
+
+                <div className="my-6 text-center">
+                  {!isFlipped ? (
+                    <h3 className="text-lg sm:text-xl font-bold leading-relaxed">
+                      {t.cards.items[currentCard].front}
+                    </h3>
+                  ) : (
+                    <div className="text-base sm:text-lg font-medium whitespace-pre-line leading-relaxed text-emerald-400">
+                      {t.cards.items[currentCard].back}
+                    </div>
+                  )}
+                </div>
+
+                <div className="text-center text-xs opacity-60">
+                  {isFlipped ? t.cards.clickBack : t.cards.thinkFirst}
+                </div>
+              </div>
+
+              {/* Controles de Navegación de Flashcards */}
+              <div className="flex flex-wrap items-center justify-between gap-4 mt-6">
+                <button
+                  onClick={() => {
+                    setIsFlipped(false);
+                    setCurrentCard((prev) => (prev === 0 ? t.cards.items.length - 1 : prev - 1));
+                  }}
+                  className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-semibold border transition ${
+                    darkMode ? 'bg-slate-800 border-slate-700 hover:bg-slate-700' : 'bg-slate-100 border-slate-200 hover:bg-slate-200'
+                  }`}
+                >
+                  <ChevronLeft className="w-4 h-4" /> {t.cards.prev}
+                </button>
+
+                <button
+                  onClick={() => toggleMastered(currentCard)}
+                  className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold border transition ${
+                    masteredCards.includes(currentCard)
+                      ? 'bg-emerald-500 text-slate-950 border-emerald-500'
+                      : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/20'
+                  }`}
+                >
+                  <CheckCircle className="w-4 h-4" />
+                  <span>{masteredCards.includes(currentCard) ? t.cards.learned : t.cards.markLearned}</span>
+                </button>
+
+                <button
+                  onClick={() => {
+                    setIsFlipped(false);
+                    setCurrentCard((prev) => (prev === t.cards.items.length - 1 ? 0 : prev + 1));
+                  }}
+                  className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-semibold border transition ${
+                    darkMode ? 'bg-slate-800 border-slate-700 hover:bg-slate-700' : 'bg-slate-100 border-slate-200 hover:bg-slate-200'
+                  }`}
+                >
+                  {t.cards.next} <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ==========================================
+            PESTAÑA 4: QUIZ DE PRÁCTICA
+        ========================================== */}
+        {activeTab === 'quiz' && (
+          <div className="max-w-3xl mx-auto space-y-6">
+            <div className={`p-6 rounded-2xl border ${darkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-slate-200 shadow-sm'}`}>
+              <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
+                <div>
+                  <span className="text-xs font-bold uppercase tracking-wider text-emerald-500">
+                    {t.quiz.badge}
+                  </span>
+                  <h2 className="text-xl font-bold mt-0.5">
+                    {t.quiz.title}
+                  </h2>
+                </div>
+                {quizSubmitted && (
+                  <div className="px-4 py-2 rounded-xl bg-emerald-500/20 border border-emerald-500 text-emerald-400 font-bold text-sm">
+                    {t.quiz.score}: {calculateQuizScore()} / {t.quiz.questions.length}
+                  </div>
+                )}
+              </div>
+
+              <div className="space-y-6">
+                {t.quiz.questions.map((item, qIdx) => {
+                  const selected = quizAnswers[qIdx];
+                  return (
+                    <div 
+                      key={qIdx} 
+                      className={`p-5 rounded-xl border ${darkMode ? 'bg-slate-950/60 border-slate-800' : 'bg-slate-50 border-slate-200'}`}
+                    >
+                      <h4 className="font-bold text-sm sm:text-base mb-3">
+                        <span className="text-emerald-500 mr-2">{qIdx + 1}.</span>
+                        {item.q}
+                      </h4>
+
+                      <div className="space-y-2">
+                        {item.options.map((opt, oIdx) => {
+                          const isSelected = selected === oIdx;
+                          const isCorrect = item.correct === oIdx;
+                          
+                          let btnStyle = darkMode 
+                            ? 'border-slate-800 bg-slate-900 hover:border-slate-700' 
+                            : 'border-slate-200 bg-white hover:border-slate-300';
+
+                          if (!quizSubmitted && isSelected) {
+                            btnStyle = 'border-cyan-500 bg-cyan-500/15 text-cyan-400';
+                          } else if (quizSubmitted) {
+                            if (isCorrect) {
+                              btnStyle = 'border-emerald-500 bg-emerald-500/15 text-emerald-400';
+                            } else if (isSelected && !isCorrect) {
+                              btnStyle = 'border-rose-500 bg-rose-500/15 text-rose-400';
+                            }
+                          }
+
+                          return (
+                            <button
+                              key={oIdx}
+                              disabled={quizSubmitted}
+                              onClick={() => setQuizAnswers({ ...quizAnswers, [qIdx]: oIdx })}
+                              className={`w-full p-3 rounded-lg border text-left text-xs sm:text-sm font-medium transition-all flex items-center justify-between ${btnStyle}`}
+                            >
+                              <span>{opt}</span>
+                              {quizSubmitted && isCorrect && <CheckCircle className="w-4 h-4 text-emerald-400 shrink-0" />}
+                              {quizSubmitted && isSelected && !isCorrect && <XCircle className="w-4 h-4 text-rose-400 shrink-0" />}
+                            </button>
+                          );
+                        })}
+                      </div>
+
+                      {quizSubmitted && (
+                        <div className="mt-3 p-3 rounded-lg bg-slate-900 border border-slate-800 text-xs text-slate-300">
+                          <strong className="text-emerald-400">{t.quiz.explanation}</strong>
+                          {item.explanation}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+
+              <div className="mt-6 flex items-center justify-end gap-4">
+                {quizSubmitted ? (
+                  <button
+                    onClick={() => {
+                      setQuizAnswers({});
+                      setQuizSubmitted(false);
+                    }}
+                    className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-sm transition"
+                  >
+                    <RefreshCw className="w-4 h-4" /> {t.quiz.resetBtn}
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => setQuizSubmitted(true)}
+                    className="px-6 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-sm transition shadow-lg shadow-emerald-500/20"
+                  >
+                    {t.quiz.submitBtn}
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+      </main>
+
+      {/* ==========================================
+          MODAL: ESQUEMA FIEL DEL CUADERNO ORIGINAL
+      ========================================== */}
+      {showOriginalNotesModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm">
+          <div className={`max-w-4xl w-full max-h-[90vh] overflow-y-auto rounded-2xl border p-6 ${darkMode ? 'bg-slate-900 border-slate-700 text-slate-100' : 'bg-white border-slate-300 text-slate-900'}`}>
+            <div className="flex items-center justify-between border-b border-slate-800 pb-4 mb-5">
+              <div>
+                <span className="text-xs font-bold uppercase text-amber-400">{t.modal.badge}</span>
+                <h3 className="text-xl font-bold">{t.modal.title}</h3>
+              </div>
+              <button
+                onClick={() => setShowOriginalNotesModal(false)}
+                className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-bold text-slate-300"
+              >
+                {t.modal.close}
+              </button>
+            </div>
+
+            {/* Representación visual estilo hoja cuadriculada */}
+            <div className={`p-6 rounded-xl border font-mono text-xs sm:text-sm space-y-6 ${darkMode ? 'bg-slate-950 border-slate-800' : 'bg-amber-50/40 border-amber-200'}`}>
+              
+              {/* Encabezado del cuaderno */}
+              <div className="flex flex-wrap items-center justify-between gap-4 border-b border-dashed border-slate-700 pb-4">
+                <div>
+                  <div className="text-lg font-bold text-emerald-400">Splunk &nbsp;&nbsp;&nbsp; SIEM</div>
+                  <div className="mt-1">Network ──(Logs)──&gt; Splunk</div>
+                </div>
+                <div className="text-right space-y-0.5 text-cyan-400">
+                  <div>📈 Monitoring</div>
+                  <div>👁️ Visibility</div>
+                  <div>🔍 Observability</div>
+                </div>
+              </div>
+
+              {/* Las 3 Cajas del Cuaderno */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                
+                {/* Columna 1: Forwarder */}
+                <div className="space-y-3">
+                  <div className="p-2 border-2 border-emerald-500 text-center font-bold text-emerald-400 rounded">
+                    [ Forwarder ]
+                  </div>
+                  <div className="pl-2 space-y-1 opacity-85">
+                    <div>↳ Agent installed</div>
+                    <div className="pl-3">↳ Sending data to Splunk instance.</div>
+                  </div>
+                  <ul className="space-y-2 pl-2 pt-2 border-t border-slate-800">
+                    <li>• <strong>Web Server</strong><br/><span className="opacity-75">(Web traffic)</span></li>
+                    <li>• <strong>Windows Sysmon data</strong><br/><span className="opacity-75">(Windows Event, PowerShell)</span></li>
+                    <li>• <strong>Linux</strong><br/><span className="opacity-75">(Host-centric logs)</span></li>
+                    <li>• <strong>Database</strong><br/><span className="opacity-75">(DB requests, responses, errors)</span></li>
+                  </ul>
+                </div>
+
+                {/* Columna 2: Indexer */}
+                <div className="space-y-3">
+                  <div className="p-2 border-2 border-cyan-500 text-center font-bold text-cyan-400 rounded">
+                    [ Indexer ]
+                  </div>
+                  <div className="p-4 border border-cyan-500/40 rounded-xl space-y-2 bg-cyan-500/5">
+                    <div className="font-bold underline text-cyan-400 mb-2">Main Role</div>
+                    <div>• Parses</div>
+                    <div>• Normalizes</div>
+                    <div>• Categorizes</div>
+                    <div>• Store</div>
+                  </div>
+                </div>
+
+                {/* Columna 3: Search Head */}
+                <div className="space-y-3">
+                  <div className="p-2 border-2 border-purple-500 text-center font-bold text-purple-400 rounded">
+                    [ Search Head ]
+                  </div>
+                  <div className="p-4 border border-purple-500/40 rounded-xl space-y-2 bg-purple-500/5">
+                    <div className="font-bold text-purple-400">Search and Report App</div>
+                    <div>• <strong>SPL</strong> (Search Processing Language)</div>
+                  </div>
+                  <div className="pl-2 space-y-1 pt-2">
+                    <div className="opacity-75">{t.modal.drawingsNote}</div>
+                    <div>• Create Dashboard</div>
+                    <div>• Tables</div>
+                  </div>
+                </div>
+
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+    </div>
+  );
+}
