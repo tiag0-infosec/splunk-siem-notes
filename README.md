@@ -15,8 +15,7 @@ Built directly from handwritten study notes, this project transforms static diag
 ## 🚀 Live Demo
 
 Once deployed via **GitHub Pages**, you can access the live interactive application here:
-> 🔗 **[View Live Application on GitHub Pages](#)** *(Replace `#` with your GitHub Pages URL once published)*
-
+> 🔗 **[View Live Application on GitHub Pages](https://tiag0-infosec.github.io/splunk-siem-notes/)** 
 ---
 
 ## 🎯 Purpose of This Repository
